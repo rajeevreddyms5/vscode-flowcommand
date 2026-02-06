@@ -4,7 +4,7 @@
   "displayName": "TaskSync Remote",
   "description": "Automate AI conversations. Queue your prompts or tasks. Work uninterrupted. Control from phone/browser.",
   "icon": "media/Tasksync-logo.png",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "engines": {
     "vscode": "^1.90.0"
   },

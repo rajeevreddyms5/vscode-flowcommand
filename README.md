@@ -55,6 +55,66 @@ Paste or drag-and-drop images directly into the chat input. Images are automatic
 2. Open VS Code and access TaskSync from the Activity Bar
 3. Enable the tool
 
+## Building from Source
+
+### Prerequisites
+- Node.js 18+ and npm
+- VS Code 1.90.0 or higher
+
+### Development Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/rajeevreddyms5/tasksync_remote.git
+   cd tasksync_remote
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Build the extension:
+   ```bash
+   npm run build
+   ```
+
+4. Install the built extension in VS Code:
+   - Open VS Code
+   - Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+   - Run `Extensions: Install from VSIX`
+   - Select the generated `.vsix` file from the project root
+
+### Development Commands
+- `npm run build` - Build the extension using esbuild
+- `npm run compile` - Type-check with TypeScript
+- `npm run watch` - Watch mode for development
+- `npm run lint` - Run ESLint
+
+### Publishing
+To create a publishable VSIX package:
+1. Install VS Code Extension CLI:
+   ```bash
+   npm install -g @vscode/vsce
+   ```
+
+2. Package the extension:
+   ```bash
+   vsce package
+   ```
+
+This will generate a `.vsix` file that can be published to the VS Code Marketplace or installed locally.
+
+### CI/CD
+This repository includes GitHub Actions workflows for automated building and releasing:
+- **Build**: Runs on every push and PR to verify the extension builds correctly
+- **Release**: Automatically packages and attaches VSIX files to GitHub releases
+
+To create a new release:
+1. Update version in `package.json`
+2. Create a git tag: `git tag v1.x.x`
+3. Push the tag: `git push origin v1.x.x`
+4. GitHub will automatically create a release and attach the VSIX file
+
 ### For better performance add this on your instructions or make it a custom chatmode. 
 
 ```

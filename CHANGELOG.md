@@ -2,6 +2,15 @@
 
 All notable changes to TaskSync Remote will be documented in this file.
 
+## [1.0.1] - 2025-02-06
+
+### Fixed
+- Report Issue button now links to correct repository
+- Connection stability improvements in remote UI
+
+### Changed
+- Updated README with feature comparison table highlighting differences from original TaskSync
+
 ## [1.0.0] - 2025-01-27
 
 ### Initial Release

@@ -6,6 +6,23 @@ TaskSync Remote lets you batch and queue your prompts to AI agents in VS Code, s
 
 > **Attribution:** This extension is based on [TaskSync by intuitiv](https://github.com/intuitiv/TaskSync), which itself is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync). This version includes custom modifications and enhanced Remote Mobile/Web Access features.
 
+---
+
+## 🆕 What's New in TaskSync Remote
+
+Compared to the original TaskSync, this fork includes these **exclusive enhancements**:
+
+| Feature | Original | TaskSync Remote |
+|---------|----------|-----------------|
+| **Remote UI Light/Dark Theme** | Basic dark only | ✅ Full light & dark theme with proper toggle |
+| **Terminal Output Display** | Limited | ✅ Terminal-style display with working directory (PS C:\path>) |
+| **Connection Stability** | Aggressive reconnection loops | ✅ Smart reconnection only when needed |
+| **Terminal Escape Codes** | Shows raw codes (]633;C) | ✅ Clean output with escape codes stripped |
+| **File Browser in Remote UI** | Basic | ✅ Enhanced with light theme support |
+| **Mobile-Optimized UI** | Partial | ✅ Fully responsive with improved spacing |
+
+---
+
 ## Features
 
 ### Smart Queue Mode

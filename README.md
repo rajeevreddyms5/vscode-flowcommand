@@ -4,6 +4,8 @@
 
 TaskSync lets you batch and queue your prompts to AI agents in VS Code, so they can keep working while you stay focused. Perfect for long-running tasks, repetitive workflows, or hands-free automation—saving you time and reducing premium requests.
 
+> **Attribution:** This extension is based on [TaskSync by intuitiv](https://github.com/intuitiv/TaskSync), which itself is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync). This version includes custom modifications and the Remote Mobile/Web Access feature.
+
 ## Features
 
 ### Smart Queue Mode
@@ -132,4 +134,19 @@ TaskSync automatically registers with Kiro and Cursor. For other clients, add th
 
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE) for details.
+
+---
+
+## Credits & Attribution
+
+This project builds upon the excellent work of the TaskSync community:
+
+- **Original Creator:** [4regab/TaskSync](https://github.com/4regab/TaskSync) - The original TaskSync extension
+- **Remote Access Features:** [intuitiv/TaskSync](https://github.com/intuitiv/TaskSync) - Added Remote Mobile/Web Access capability
+- **This Fork:** Custom modifications for improved remote UI, theme support, and terminal display
+
+Thank you to all contributors who made TaskSync possible!
+
+> ⚠️ **GitHub Security Notice:**  
+> GitHub prohibits use of their servers for excessive automated bulk activity. Please review [GitHub Acceptable Use Policies](https://docs.github.com/site-policy/acceptable-use-policies/github-acceptable-use-policies#4-spam-and-inauthentic-activity-on-github) and use TaskSync responsibly.

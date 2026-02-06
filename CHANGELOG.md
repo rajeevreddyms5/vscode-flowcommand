@@ -2,6 +2,22 @@
 
 All notable changes to TaskSync Remote will be documented in this file.
 
+## [1.0.3] - 2026-02-06
+
+### Fixed
+- Mobile browser connection stability - use polling transport first for better compatibility
+- File browser now shows dotfiles like `.github`, `.gsd`, `.env.example` etc.
+- Added connection timeout feedback for mobile users
+
+### Changed
+- Improved socket.io connection options for cross-device compatibility
+
+## [1.0.2] - 2026-02-06
+
+### Fixed
+- Include socket.io and express runtime dependencies in VSIX package
+- Extension now loads correctly on startup
+
 ## [1.0.1] - 2026-02-06
 
 ### Fixed

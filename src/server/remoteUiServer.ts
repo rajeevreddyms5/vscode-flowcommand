@@ -683,9 +683,13 @@ export class RemoteUiServer implements vscode.Disposable {
             const entries = await vscode.workspace.fs.readDirectory(basePath);
             const result: { name: string; path: string; isDirectory: boolean }[] = [];
             
+            // Specific hidden folders to exclude (but allow .github, .gsd, etc.)
+            const excludedHiddenFolders = ['.git', '.vscode', '.idea', '.venv', '.env', '.cache', '.npm', '.yarn'];
+            const excludedFolders = ['node_modules', '__pycache__', 'venv', 'dist', 'build', 'out', 'coverage'];
+            
             for (const [name, fileType] of entries) {
-                // Skip hidden files and common excludes
-                if (name.startsWith('.') || name === 'node_modules' || name === '__pycache__') {
+                // Skip specific hidden folders and common excludes
+                if (excludedHiddenFolders.includes(name) || excludedFolders.includes(name)) {
                     continue;
                 }
                 
@@ -2553,18 +2557,29 @@ self.addEventListener('fetch', event => {
                 return;
             }
             
-            // Connect matching original TaskSync config
+            // Connect with polling first for better mobile compatibility
             socket = io({
-                transports: ['websocket', 'polling'],
+                transports: ['polling', 'websocket'],
                 reconnection: true,
                 reconnectionAttempts: maxReconnectAttempts,
-                reconnectionDelay: 1000
+                reconnectionDelay: 1000,
+                timeout: 20000,
+                forceNew: true
             });
             
             console.log('[TaskSync] Socket created, waiting for connect event...');
             
+            // Add connection timeout for better mobile feedback
+            var connectTimeout = setTimeout(function() {
+                if (!socket.connected) {
+                    console.error('[TaskSync] Connection timeout');
+                    updateConnectionStatus('disconnected', '<span class="codicon codicon-error"></span> Connection timeout. Check network.');
+                }
+            }, 15000);
+            
             socket.on('connect', () => {
                 console.log('[TaskSync] Socket connected, sending authenticate...');
+                clearTimeout(connectTimeout);
                 reconnectAttempts = 0;  // Reset on successful connection
                 clearReconnectTimer();  // Clear any reconnect timer
                 updateConnectionStatus('connecting', '<span class="codicon codicon-key"></span> Authenticating...');

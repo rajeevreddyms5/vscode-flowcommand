@@ -1,10 +1,10 @@
-# TaskSync
+# TaskSync Remote
 
-**Automate AI conversations. Queue your prompts. Work uninterrupted.**
+**Automate AI conversations. Queue your prompts. Control from your phone or browser.**
 
-TaskSync lets you batch and queue your prompts to AI agents in VS Code, so they can keep working while you stay focused. Perfect for long-running tasks, repetitive workflows, or hands-free automation—saving you time and reducing premium requests.
+TaskSync Remote lets you batch and queue your prompts to AI agents in VS Code, so they can keep working while you stay focused. Perfect for long-running tasks, repetitive workflows, or hands-free automation—saving you time and reducing premium requests.
 
-> **Attribution:** This extension is based on [TaskSync by intuitiv](https://github.com/intuitiv/TaskSync), which itself is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync). This version includes custom modifications and the Remote Mobile/Web Access feature.
+> **Attribution:** This extension is based on [TaskSync by intuitiv](https://github.com/intuitiv/TaskSync), which itself is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync). This version includes custom modifications and enhanced Remote Mobile/Web Access features.
 
 ## Features
 

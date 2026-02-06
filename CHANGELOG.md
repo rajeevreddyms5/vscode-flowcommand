@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to TaskSync will be documented in this file.
+All notable changes to TaskSync Remote will be documented in this file.
 
 ## [1.0.0] - 2025-01-27
 
 ### Initial Release
 
-First release of this fork with the following features:
+First release of TaskSync Remote with the following features:
 
 - **Smart Queue Mode** - Batch and queue prompts for AI agents
 - **Normal Mode** - Direct interaction with AI agents

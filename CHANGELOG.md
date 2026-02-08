@@ -2,7 +2,19 @@
 
 All notable changes to TaskSync Remote will be documented in this file.
 
-## [1.0.3] - 2026-02-06
+## [1.0.4] - 2025-02-07
+
+### Added
+- Full light/dark theme support for plan_review tool and remote UI
+- Theme syncs automatically with VS Code's active theme
+- Landing page respects system theme preference
+
+### Fixed
+- Plan review panel now opens as dedicated VS Code editor tab (70% plan, 30% comments)
+- Remote modal responsive layout for mobile devices
+- Theme-color meta tag updates dynamically for mobile browsers
+
+## [1.0.3] - 2025-02-06
 
 ### Fixed
 - Mobile browser connection stability - use polling transport first for better compatibility
@@ -12,13 +24,13 @@ All notable changes to TaskSync Remote will be documented in this file.
 ### Changed
 - Improved socket.io connection options for cross-device compatibility
 
-## [1.0.2] - 2026-02-06
+## [1.0.2] - 2025-02-06
 
 ### Fixed
 - Include socket.io and express runtime dependencies in VSIX package
 - Extension now loads correctly on startup
 
-## [1.0.1] - 2026-02-06
+## [1.0.1] - 2025-02-06
 
 ### Fixed
 - Report Issue button now links to correct repository
@@ -29,7 +41,7 @@ All notable changes to TaskSync Remote will be documented in this file.
 - Simplified attribution - now correctly credits original 4regab/TaskSync only
 - Remote server is our own implementation, not derived from intuitiv fork
 
-## [1.0.0] - 2026-01-27
+## [1.0.0] - 2025-01-27
 
 ### Initial Release
 

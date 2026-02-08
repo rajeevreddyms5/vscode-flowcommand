@@ -966,7 +966,7 @@ self.addEventListener('fetch', event => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#1e1e1e">
+    <meta name="theme-color" content="#1e1e1e" id="theme-color-meta">
     <link rel="manifest" href="/manifest.json">
     <title>TaskSync Remote</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -974,25 +974,53 @@ self.addEventListener('fetch', event => {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/media/codicon.css" rel="stylesheet">
     <style>
+        :root {
+            --landing-bg: #1e1e1e;
+            --landing-fg: #cccccc;
+            --landing-fg-muted: #9d9d9d;
+            --landing-card-bg: #252526;
+            --landing-input-bg: #1e1e1e;
+            --landing-input-border: #3c3c3c;
+            --landing-accent: #007acc;
+            --landing-accent-hover: #0587d4;
+            --landing-error: #f48771;
+            --landing-error-bg: rgba(244, 135, 113, 0.1);
+            --landing-hover-bg: #2a2d2e;
+            --landing-code-bg: #2a2d2e;
+        }
+        body.light-theme {
+            --landing-bg: #f3f3f3;
+            --landing-fg: #3c3c3c;
+            --landing-fg-muted: #717171;
+            --landing-card-bg: #ffffff;
+            --landing-input-bg: #ffffff;
+            --landing-input-border: #cecece;
+            --landing-accent: #007acc;
+            --landing-accent-hover: #005a9e;
+            --landing-error: #cd3131;
+            --landing-error-bg: rgba(205, 49, 49, 0.1);
+            --landing-hover-bg: #e8e8e8;
+            --landing-code-bg: #e8e8e8;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #1e1e1e;
+            background-color: var(--landing-bg);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 20px;
-            color: #cccccc;
+            color: var(--landing-fg);
         }
         .container { max-width: 400px; width: 100%; }
         .logo { text-align: center; margin-bottom: 40px; }
         .logo img { width: 64px; height: 64px; margin-bottom: 16px; }
-        .logo h1 { font-size: 24px; font-weight: 600; color: #cccccc; }
-        .logo p { color: #9d9d9d; margin-top: 8px; font-size: 14px; }
+        .logo h1 { font-size: 24px; font-weight: 600; color: var(--landing-fg); }
+        .logo p { color: var(--landing-fg-muted); margin-top: 8px; font-size: 14px; }
         .card {
-            background: #252526;
+            background: var(--landing-card-bg);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 16px;
@@ -1017,14 +1045,14 @@ self.addEventListener('fetch', event => {
             text-align: center;
             font-size: 24px;
             font-weight: 600;
-            border: 2px solid #3c3c3c;
+            border: 2px solid var(--landing-input-border);
             border-radius: 8px;
-            background: #1e1e1e;
-            color: #ffffff;
+            background: var(--landing-input-bg);
+            color: var(--landing-fg);
             outline: none;
             transition: border-color 0.2s;
         }
-        .pin-digit:focus { border-color: #007acc; }
+        .pin-digit:focus { border-color: var(--landing-accent); }
         .btn {
             width: 100%;
             padding: 14px;
@@ -1040,13 +1068,13 @@ self.addEventListener('fetch', event => {
             transition: opacity 0.2s, background-color 0.2s;
         }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-primary { background: #007acc; color: white; }
-        .btn-primary:hover:not(:disabled) { background: #0587d4; }
+        .btn-primary { background: var(--landing-accent); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--landing-accent-hover); }
         .error {
-            color: #f48771;
+            color: var(--landing-error);
             text-align: center;
             padding: 12px;
-            background: rgba(244, 135, 113, 0.1);
+            background: var(--landing-error-bg);
             border-radius: 8px;
             margin-top: 16px;
         }
@@ -1056,17 +1084,17 @@ self.addEventListener('fetch', event => {
             align-items: center;
             gap: 12px;
             padding: 12px;
-            background: #1e1e1e;
+            background: var(--landing-input-bg);
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        .session-item:hover { background: #2a2d2e; }
-        .session-item.current { border: 1px solid #007acc; }
+        .session-item:hover { background: var(--landing-hover-bg); }
+        .session-item.current { border: 1px solid var(--landing-accent); }
         .session-icon {
             width: 40px;
             height: 40px;
-            background: #007acc;
+            background: var(--landing-accent);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -1074,10 +1102,10 @@ self.addEventListener('fetch', event => {
         }
         .session-info { flex: 1; }
         .session-name { font-weight: 500; }
-        .session-port { font-size: 12px; color: #9d9d9d; }
+        .session-port { font-size: 12px; color: var(--landing-fg-muted); }
         .session-badge {
             font-size: 10px;
-            background: #007acc;
+            background: var(--landing-accent);
             color: white;
             padding: 2px 8px;
             border-radius: 10px;
@@ -1089,11 +1117,41 @@ self.addEventListener('fetch', event => {
             margin-top: 16px;
         }
         .help-text code {
-            background: #2a2d2e;
+            background: var(--landing-code-bg);
             padding: 2px 6px;
             border-radius: 4px;
         }
+        /* Apply light theme based on system preference */
+        @media (prefers-color-scheme: light) {
+            :root {
+                --landing-bg: #f3f3f3;
+                --landing-fg: #3c3c3c;
+                --landing-fg-muted: #717171;
+                --landing-card-bg: #ffffff;
+                --landing-input-bg: #ffffff;
+                --landing-input-border: #cecece;
+                --landing-accent: #007acc;
+                --landing-accent-hover: #005a9e;
+                --landing-error: #cd3131;
+                --landing-error-bg: rgba(205, 49, 49, 0.1);
+                --landing-hover-bg: #e8e8e8;
+                --landing-code-bg: #e8e8e8;
+            }
+        }
     </style>
+    <script>
+        // Update theme-color meta for mobile browsers based on system preference
+        (function() {
+            var metaTheme = document.getElementById('theme-color-meta');
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                metaTheme.setAttribute('content', '#f3f3f3');
+            }
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(e) {
+                metaTheme.setAttribute('content', e.matches ? '#f3f3f3' : '#1e1e1e');
+            });
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
@@ -2550,6 +2608,21 @@ self.addEventListener('fetch', event => {
         // Make showMobileNotification globally accessible
         window.showMobileNotification = showMobileNotification;
         
+        // Apply theme (light or dark) from VS Code
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                document.body.classList.add('light-theme');
+                // Update theme-color meta tag for mobile browsers
+                var metaTheme = document.querySelector('meta[name="theme-color"]');
+                if (metaTheme) metaTheme.setAttribute('content', '#f3f3f3');
+            } else {
+                document.body.classList.remove('light-theme');
+                var metaTheme = document.querySelector('meta[name="theme-color"]');
+                if (metaTheme) metaTheme.setAttribute('content', '#1e1e1e');
+            }
+            console.log('[TaskSync] Theme applied:', theme);
+        }
+        
         // Connection status UI
         const statusEl = document.getElementById('connection-status');
         
@@ -2675,6 +2748,11 @@ self.addEventListener('fetch', event => {
                 console.log('[TaskSync] Received initial state');
                 lastSuccessTime = Date.now();  // Track successful message
                 
+                // Apply theme from VS Code
+                if (state.theme) {
+                    applyTheme(state.theme);
+                }
+                
                 if (window.dispatchVSCodeMessage) {
                     if (state.queue !== undefined) {
                         window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled });
@@ -2708,12 +2786,22 @@ self.addEventListener('fetch', event => {
             
             socket.on('message', (message) => {
                 console.log('[TaskSync] Received message:', message.type);
+                
+                // Handle theme updates
+                if (message.type === 'updateTheme' && message.theme) {
+                    applyTheme(message.theme);
+                    return;
+                }
+                
                 if (window.dispatchVSCodeMessage) {
                     window.dispatchVSCodeMessage(message);
                 }
-                // Trigger mobile browser notification for toolCallPending
-                if (message.type === 'toolCallPending' && window.mobileNotificationEnabled) {
-                    showMobileNotification(message.prompt);
+                // Trigger mobile browser notification for toolCallPending or planReviewPending
+                if ((message.type === 'toolCallPending' || message.type === 'planReviewPending') && window.mobileNotificationEnabled) {
+                    const notificationText = message.type === 'planReviewPending' 
+                        ? 'Plan Review: ' + (message.title || 'Review required')
+                        : message.prompt;
+                    showMobileNotification(notificationText);
                 }
                 // Sync mobile notification flag when settings change
                 if (message.type === 'updateSettings') {

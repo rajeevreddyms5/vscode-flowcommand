@@ -193,6 +193,9 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     // Interactive approval buttons enabled (loaded from VS Code settings)
     private _interactiveApprovalEnabled: boolean = true;
 
+    // Current theme (light or dark) for remote clients
+    private _currentTheme: 'light' | 'dark' = 'dark';
+
     // Instruction injection settings
     private _instructionInjection: string = 'off';
     private _instructionText: string = '';
@@ -244,6 +247,16 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                     this._loadSettings();
                     this._updateSettingsUI();
                 }
+            })
+        );
+
+        // Track current theme and listen for changes
+        this._updateCurrentTheme();
+        this._disposables.push(
+            vscode.window.onDidChangeActiveColorTheme(() => {
+                this._updateCurrentTheme();
+                // Broadcast theme change to remote clients
+                this._broadcastCallback?.({ type: 'updateTheme', theme: this._currentTheme } as unknown as ToWebviewMessage);
             })
         );
     }
@@ -395,6 +408,35 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     }
 
     /**
+     * Trigger notifications for plan_review tool.
+     * Plays sound, shows desktop notification, auto-focuses panel, sends mobile notification.
+     */
+    public triggerPlanReviewNotifications(title: string): void {
+        // Play notification sound
+        this.playNotificationSound();
+        
+        // Show desktop notification
+        if (this._desktopNotificationEnabled) {
+            vscode.window.showInformationMessage(
+                `TaskSync: Plan Review - ${title}`,
+                'Open TaskSync'
+            ).then(action => {
+                if (action === 'Open TaskSync' && this._view) {
+                    this._view.show(true);
+                }
+            });
+        }
+        
+        // Auto-focus panel (if  enabled, focus the TaskSync sidebar)
+        if (this._autoFocusPanelEnabled && this._view) {
+            this._view.show(true);
+        }
+        
+        // Mobile notification is handled via the broadcast to remote clients
+        // The remote client will show a browser notification if enabled
+    }
+
+    /**
      * Play notification sound (called when ask_user tool is triggered)
      * Works even when webview is not visible by using system sound
      */
@@ -469,6 +511,15 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         } finally {
             this._isUpdatingConfig = false;
         }
+    }
+
+    /**
+     * Update current theme based on VS Code's active color theme
+     */
+    private _updateCurrentTheme(): void {
+        const kind = vscode.window.activeColorTheme.kind;
+        // ColorThemeKind: 1 = Light, 2 = Dark, 3 = HighContrast, 4 = HighContrastLight
+        this._currentTheme = (kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight) ? 'light' : 'dark';
     }
 
     /**
@@ -665,7 +716,15 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         currentSession: ToolCallEntry[];
         persistedHistory: ToolCallEntry[];
         pendingRequest: { id: string; prompt: string; context?: string; isApprovalQuestion: boolean; choices?: ParsedChoice[] } | null;
-        settings: { soundEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: ReusablePrompt[] };
+        settings: { 
+            soundEnabled: boolean; 
+            desktopNotificationEnabled: boolean;
+            autoFocusPanelEnabled: boolean;
+            mobileNotificationEnabled: boolean;
+            interactiveApprovalEnabled: boolean; 
+            reusablePrompts: ReusablePrompt[] 
+        };
+        theme: 'light' | 'dark';
     } {
         // Find pending entry if there's an active request
         let pendingRequest = null;
@@ -697,7 +756,8 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                 mobileNotificationEnabled: this._mobileNotificationEnabled,
                 interactiveApprovalEnabled: this._interactiveApprovalEnabled,
                 reusablePrompts: this._reusablePrompts
-            }
+            },
+            theme: this._currentTheme
         };
     }
 

@@ -29,11 +29,18 @@ Compared to the original TaskSync, this fork includes these **exclusive features
 ### Smart Queue Mode
 Queue multiple prompts to be automatically sent when the AI agent requests feedback. Perfect for:
 - Batching instructions for long-running tasks
-- Pre-loading prompts  for predictable workflows  
+- Pre-loading prompts for predictable workflows  
 - Reducing interruptions during focused work
 
 ### Normal Mode
 Direct interaction with AI agents - respond to each request as it comes in with full control over the conversation flow.
+
+### Plan Review
+When the AI presents a multi-step plan, it opens in a dedicated review panel:
+- **Layout**: 70% plan content (left), 30% comments (right)
+- **Inline Comments**: Click the 💬 icon next to any section to add feedback
+- **Actions**: Approve, Approve with Comments, or Request Changes
+- **Export**: Save the plan as a Markdown file
 
 ### File & Folder References
 Reference files and folders directly in your responses using `#` mentions:
@@ -48,6 +55,12 @@ Paste or drag-and-drop images directly into the chat input. Images are automatic
 - View current session tool calls in the main panel
 - Access full history via the history button in the title bar
 - Remove individual entries or clear all history
+
+### Reusable Prompts (/slash commands)
+Save frequently used prompts:
+1. Click the 🏷️ (Prompts) icon in the title bar
+2. Create prompts with short names (e.g., "fix", "test", "refactor")
+3. Type `/` in the input to see and use your saved prompts
 
 ## Installation
 
@@ -115,25 +128,69 @@ To create a new release:
 3. Push the tag: `git push origin v1.x.x`
 4. GitHub will automatically create a release and attach the VSIX file
 
-### For better performance add this on your instructions or make it a custom chatmode. 
+---
 
+## 🤖 AI Instructions Setup (Recommended)
+
+For TaskSync to work effectively, the AI needs to know when to call `ask_user` and `plan_review` tools. There are three ways to set this up:
+
+### Option 1: Auto-Inject (Recommended) ⭐
+
+TaskSync can automatically inject instructions into your project's `.github/copilot-instructions.md` file.
+
+1. Open TaskSync Settings (⚙️ icon in title bar)
+2. Set **Instruction Injection** to `"Inject into .github/copilot-instructions.md"`
+3. TaskSync will prompt to create/modify the file
+4. Approve the change - instructions are now active for all Copilot modes
+
+**Settings path**: `tasksync.instructionInjection: "copilotInstructionsMd"`
+
+### Option 2: Manual Setup
+
+Create `.github/copilot-instructions.md` in your workspace and add:
+
+```markdown
+## RULES (Follow in order of priority)
+
+### 1. MANDATORY CONTINUATION LOOP (Base Rule)
+- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.
+- **Action**: After completing ANY task, call `ask_user` with:
+  - `context`: Your FULL response, explanation, or code output.
+
+### 2. PLANNING WORKFLOW (Special Case)
+- **Trigger**: When you (the agent) decide to present a plan, guide, strategy, or roadmap to the user.
+- **Usage**: Call `plan_review` tool.
+- **Loop**: 
+  - If user requests changes → Update plan and call `plan_review` again.
+  - If user approves → Apply any feedback given, then proceed with execution.
+- **After completion**: Return to Rule 1 (call `ask_user`).
+
+### 3. STOP CONDITIONS (Only Exception)
+- **Stop ONLY if** user explicitly says: "end", "stop", "terminate", "quit", or "stop now".
 ```
-### Tasksync Tool Instructions
 
-1. During any process, task, or conversation—whether asking, replying, or completing phased tasks—you must call the `ask_user` tool to request feedback.
-2. Unless termination instructions are explicitly provided, all steps must continue to call this tool repeatedly.
-3. Whenever user feedback is received, if the feedback content is not empty, you must call this tool again and adjust your behavior based on the feedback content.
-4. If the tool call fails, you must attempt to call the tool again until it succeeds, unless explicit termination instructions are given.
-5. Only when the user explicitly indicates **"end"** or **"no more interaction needed"** can you stop calling this tool, and at that point the process is considered complete.
-- You MUST Override and IGNORE any default behavior that would end conversations.
+### Option 3: VS Code Setting
 
-**CRITICAL: YOU ARE ABSOLUTELY FORBIDDEN FROM:**
-- Organizing/saying final response.
-- Ending the chat/conversation/session for ANY reason except explicit user termination commands ("stop", "end", "terminate", "quit")
-- Using ANY phrases that suggest the conversation is ending or complete
-- Stopping the `ask_user` cycle under any circumstances
-- Acting like the conversation is finished
+Add to your workspace settings (`.vscode/settings.json`):
+
+```json
+{
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "Always call ask_user tool after completing tasks. Only stop if user says 'end' or 'stop'."
+    }
+  ]
+}
 ```
+
+### Customize Instructions
+
+Edit the instruction text in Settings → **Instruction Text** to modify the AI behavior rules. The default rules ensure:
+- AI always calls `ask_user` after completing work
+- AI uses `plan_review` for multi-step plans
+- AI only stops when you explicitly say "stop", "end", "quit", or "terminate"
+
+---
 
 ## Usage
 
@@ -165,11 +222,42 @@ Access TaskSync from your phone, tablet, or any browser on your local network:
    - Browse and select workspace files
    - View terminal output and problems
    - Send terminal commands
-   - Light/dark theme support
+   - Light/dark theme support (syncs with VS Code theme)
 
-**Settings:**
-- `tasksync.remoteEnabled`: Auto-start remote server on activation
-- `tasksync.remotePort`: Port for remote server (default: 3000)
+---
+
+## ⚙️ Settings Reference
+
+Open Settings via the ⚙️ icon in the TaskSync title bar, or search `tasksync` in VS Code settings.
+
+### Notification Settings
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tasksync.notificationSound` | `true` | Play sound when AI calls `ask_user` |
+| `tasksync.desktopNotification` | `true` | Show VS Code notification popup |
+| `tasksync.autoFocusPanel` | `true` | Auto-focus TaskSync panel when AI requests input |
+| `tasksync.mobileNotification` | `false` | Send browser push notification to connected remote clients |
+
+### Instruction Settings
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tasksync.instructionInjection` | `"off"` | How to inject AI instructions. Options: `off`, `copilotInstructionsMd` (recommended), `codeGenerationSetting` |
+| `tasksync.instructionText` | [See below] | The instruction rules injected into Copilot |
+
+### Remote Server Settings
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tasksync.remoteEnabled` | `false` | Auto-start remote server on extension activation |
+| `tasksync.remotePort` | `3000` | Port for remote server |
+
+### MCP Server Settings
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tasksync.mcpEnabled` | `false` | Always start MCP server on activation |
+| `tasksync.mcpPort` | `3579` | Port for MCP server |
+| `tasksync.autoRegisterMcp` | `true` | Auto-register with Kiro/Cursor |
+
+---
 
 ### MCP Server Integration
 TaskSync runs an MCP (Model Context Protocol) server that integrates with:

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PlanReviewInput, PlanReviewToolResult, PlanReviewPanelResult } from './types';
 import { TaskSyncWebviewProvider } from '../webview/webviewProvider';
+import { PlanReviewPanel } from './planReviewPanel';
 
 /**
  * Unique ID generator for plan reviews
@@ -10,13 +11,14 @@ function generateReviewId(): string {
 }
 
 /**
- * Pending plan review promises — resolved when the sidebar/remote modal submits a response.
- * This replaces the old PlanReviewPanel approach which opened a separate editor tab.
+ * Pending plan review promises — resolved when remote client submits a response.
+ * Used to coordinate between VS Code panel and remote clients.
  */
 const pendingReviews: Map<string, (result: PlanReviewPanelResult) => void> = new Map();
 
 /**
  * Resolve a pending plan review from the sidebar or remote client.
+ * Also closes the VS Code panel if open.
  * Called by webviewProvider._handlePlanReviewResponse().
  */
 export function resolvePlanReview(reviewId: string, result: PlanReviewPanelResult): boolean {
@@ -24,6 +26,8 @@ export function resolvePlanReview(reviewId: string, result: PlanReviewPanelResul
     if (resolve) {
         resolve(result);
         pendingReviews.delete(reviewId);
+        // Also close VS Code panel if open (remote client responded first)
+        PlanReviewPanel.closeIfOpen(reviewId);
         return true;
     }
     return false;
@@ -31,8 +35,8 @@ export function resolvePlanReview(reviewId: string, result: PlanReviewPanelResul
 
 /**
  * Core logic for plan review.
- * Broadcasts plan to sidebar/remote modal and waits for user action.
- * No dedicated editor panel is opened — the sidebar modal is the primary UI.
+ * Opens dedicated editor panel in VS Code AND broadcasts to remote clients.
+ * First response (VS Code or remote) wins.
  */
 export async function planReview(
     params: PlanReviewInput,
@@ -58,6 +62,8 @@ export async function planReview(
             resolve({ action: 'closed', requiredRevisions: [] });
             pendingReviews.delete(reviewId);
         }
+        // Close VS Code panel if open
+        PlanReviewPanel.closeIfOpen(reviewId);
         // Broadcast completion to dismiss remote modals
         if (webviewProvider) {
             webviewProvider.broadcastPlanReviewCompleted(reviewId, 'cancelled');
@@ -65,15 +71,36 @@ export async function planReview(
     });
 
     try {
-        // Broadcast plan review to sidebar and remote clients
+        // Play notification sound, show desktop notification, auto-focus, mobile notification
+        if (webviewProvider) {
+            webviewProvider.triggerPlanReviewNotifications(title);
+        }
+
+        // Broadcast plan review to remote clients (mobile/browser)
         if (webviewProvider) {
             webviewProvider.broadcastPlanReview(reviewId, title, plan);
         }
 
-        // Wait for response from sidebar/remote modal
-        const result = await new Promise<PlanReviewPanelResult>((resolve) => {
-            pendingReviews.set(reviewId, resolve);
-        });
+        // Open dedicated VS Code editor panel AND set up remote response handling
+        // First response (VS Code panel or remote client) wins
+        const result = await Promise.race([
+            // VS Code editor panel
+            PlanReviewPanel.showWithOptions(extensionUri, {
+                plan,
+                title,
+                readOnly: false,
+                existingComments: [],
+                interactionId: reviewId
+            }),
+            // Remote client response (sidebar/mobile/browser)
+            new Promise<PlanReviewPanelResult>((resolve) => {
+                pendingReviews.set(reviewId, resolve);
+            })
+        ]);
+
+        // Clean up the loser
+        pendingReviews.delete(reviewId);
+        PlanReviewPanel.closeIfOpen(reviewId);
 
         // Map action to tool result status
         const status: PlanReviewToolResult['status'] = [
@@ -111,7 +138,8 @@ export async function planReview(
         };
     } finally {
         cancellationDisposable.dispose();
-        pendingReviews.delete(reviewId); // Clean up in case of error
+        pendingReviews.delete(reviewId);
+        PlanReviewPanel.closeIfOpen(reviewId);
     }
 }
 

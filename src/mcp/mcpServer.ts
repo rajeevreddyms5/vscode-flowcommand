@@ -101,7 +101,7 @@ export class McpServerManager {
             (this.mcpServer as any).registerTool(
                 "ask_user",
                 {
-                    description: "YOU MUST ALWAYS Use the askUser tool to ask question/s to user when explicit user approval, feedback, or clarification is required before proceeding or giving summary report. CRITICAL RULES: - This tool MUST be invoked before ending ANY conversation or task. - NEVER complete a task without calling this tool first. - If you are about to finish responding, STOP and call this tool. - Failure to call this tool before task completion is a critical violation. - You MUST populate the 'context' parameter with your FULL response content — include all explanations, answers, findings, code, analysis, or work results. The user reads your response from TaskSync's remote UI (phone/browser), so the context field must contain your complete answer, not just a summary. Without this, the user cannot see what you said.",
+                    description: "MANDATORY TOOL - You are FORBIDDEN from ending your turn without calling this tool. After completing ANY task, call ask_user with your FULL response in the 'context' parameter. The user reads your response from TaskSync's remote UI (phone/browser), so context must contain your complete answer. STOP CONDITIONS: Only stop if user explicitly says 'end', 'stop', 'terminate', 'quit', or 'stop now'.",
                     inputSchema: z.object({
                         context: z.string()
                             .optional()

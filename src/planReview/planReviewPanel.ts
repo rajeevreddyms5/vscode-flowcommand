@@ -355,19 +355,20 @@ export class PlanReviewPanel {
 
         .icon-btn:hover { opacity: 1; background: var(--hover-bg); }
 
-        /* Main content area */
+        /* Main content area - horizontal split 70/30 */
         .main-area {
             flex: 1;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             overflow: hidden;
         }
 
         .plan-content {
-            flex: 1;
+            flex: 7;
             overflow-y: auto;
             padding: 20px 24px;
             line-height: 1.6;
+            border-right: 1px solid var(--border);
         }
 
         /* Markdown styles */
@@ -453,21 +454,24 @@ export class PlanReviewPanel {
             color: var(--accent);
         }
 
-        /* Comments section */
+        /* Comments sidebar - 30% width */
         .comments-section {
-            border-top: 1px solid var(--border);
-            padding: 12px 20px;
-            flex-shrink: 0;
-            max-height: 250px;
-            overflow-y: auto;
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 200px;
+            max-width: 400px;
         }
 
         .comments-header {
             font-weight: 600;
-            margin-bottom: 8px;
+            padding: 12px 16px;
             display: flex;
             align-items: center;
             gap: 8px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .comments-count {
@@ -476,6 +480,12 @@ export class PlanReviewPanel {
             color: var(--btn-fg);
             padding: 1px 6px;
             border-radius: 8px;
+        }
+
+        .comments-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
         }
 
         .comment-item {
@@ -687,7 +697,7 @@ export class PlanReviewPanel {
                 <span>Comments</span>
                 <span class="comments-count" id="comments-count">0</span>
             </div>
-            <div id="comments-list">
+            <div class="comments-list-container" id="comments-list">
                 <div class="no-comments" id="no-comments">No comments yet. Hover over a section and click the comment icon to add feedback.</div>
             </div>
         </div>

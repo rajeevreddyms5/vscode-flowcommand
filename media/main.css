@@ -2778,6 +2778,7 @@ button#send-btn:disabled {
     }
     .plan-review-sidebar {
         min-width: unset;
+        max-height: 40vh;
     }
 }
 

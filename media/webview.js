@@ -1357,6 +1357,22 @@
                 if (message.attachment && !currentAttachments.some(function (a) { return a.id === message.attachment.id; })) {
                     currentAttachments.push(message.attachment);
                     updateChipsDisplay();
+                    // Auto-add image reference to input (like file references with #)
+                    var displayName = message.attachment.isTemporary ? 'pasted-image' : message.attachment.name;
+                    var imageRef = '[Image: ' + displayName + ']';
+                    if (chatInput) {
+                        var currentText = chatInput.value;
+                        // Add space before if there's existing text that doesn't end with space/newline
+                        if (currentText && !currentText.match(/[\s\n]$/)) {
+                            chatInput.value = currentText + ' ' + imageRef;
+                        } else {
+                            chatInput.value = currentText + imageRef;
+                        }
+                        chatInput.style.height = 'auto';
+                        chatInput.style.height = chatInput.scrollHeight + 'px';
+                        updateInputHighlighter();
+                        updateSendButtonState();
+                    }
                 }
                 break;
             case 'clear':

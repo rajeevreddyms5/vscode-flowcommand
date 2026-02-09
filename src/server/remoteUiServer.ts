@@ -27,7 +27,8 @@ export interface RemoteState {
     queueEnabled: boolean;
     currentSession: unknown[];
     persistedHistory: unknown[];
-    pendingRequest: { id: string; prompt: string; isApprovalQuestion: boolean; choices?: unknown[] } | null;
+    pendingRequest: { id: string; prompt: string; context?: string; isApprovalQuestion: boolean; choices?: unknown[] } | null;
+    pendingMultiQuestion: { requestId: string; questions: unknown[] } | null;
     settings: { soundEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: unknown[]; mcpRunning?: boolean; mcpUrl?: string | null };
 }
 
@@ -3016,6 +3017,13 @@ self.addEventListener('fetch', event => {
                             context: state.pendingRequest.context,
                             isApprovalQuestion: state.pendingRequest.isApprovalQuestion,
                             choices: state.pendingRequest.choices
+                        });
+                    } else if (state.pendingMultiQuestion) {
+                        // Handle multi-question pending state
+                        window.dispatchVSCodeMessage({
+                            type: 'multiQuestionPending',
+                            requestId: state.pendingMultiQuestion.requestId,
+                            questions: state.pendingMultiQuestion.questions
                         });
                     } else {
                         // No pending request - clear any stale pending UI

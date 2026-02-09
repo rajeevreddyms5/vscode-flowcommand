@@ -121,7 +121,7 @@ Create a 3-step plan for setting up a Node.js project and present it using plan_
 
 - [x] Trigger autocomplete: Type `#` in input → Dropdown appears
 - [x] Search files: Type "pack" → Files matching shown (e.g., package.json)
-- [x] Select file: Click a file → File chip appears in input (FIXME: In remote browser, file picker triggers only when deleting the words already added)
+- [x] Select file: Click a file → File chip appears in input
 
 ### 6.2 Folder Attachment
 
@@ -313,7 +313,7 @@ Ask me a simple question using ask_user. Do not proceed until I respond.
 
 ### 16.1 Numbered Options (1. 2. 3.)
 
-- [ ] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear (FIXME: options shown are 1, Vee and 3)
+- [ ] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear (FIXME: options shown are [framework] which..., React, Vue and Angular. Also, it was opened in an new window with option to type manually, but when i click the flowcommand extension again then reverted to old UI and gave me these options)
 
 **Copilot Test Prompt:**
 ```
@@ -420,7 +420,7 @@ Create a simple 3-step plan and call plan_review for approval.
 ### 19.2 Native vs Toast
 
 - [ ] Native (permission granted): Trigger ask_user → Native push notification appears (FIXME: Notifications blocked)
-- [ ] Toast (permission denied): Trigger ask_user → Blue visual toast at top of screen, auto-hides after 5s (FIXME: Notifications blocked)
+- [ ] Toast (permission denied): Trigger ask_user → Blue visual toast at top of screen, auto-hides after 5s (FIXME: Notifications are not triggering)
 
 ---
 

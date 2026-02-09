@@ -2764,7 +2764,7 @@
         console.log('[FlowCommand] closePlanReviewModal: modal closed');
     }
 
-    // Multi-question modal
+    // Multi-question inline display (replacing modal approach)
     var activeMultiQuestion = null;
 
     function showMultiQuestionModal(requestId, questions) {
@@ -2772,7 +2772,7 @@
         if (!requestId || !questions || !Array.isArray(questions) || questions.length === 0) {
             console.error('[FlowCommand] showMultiQuestionModal: invalid input', requestId, questions);
             // Send empty response to unblock the AI
-            vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId || 'invalid', answers: [] });
+            vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId || 'invalid', answers: [], cancelled: true });
             return;
         }
 
@@ -2780,6 +2780,17 @@
         if (activeMultiQuestion) {
             closeMultiQuestionModal(activeMultiQuestion.requestId);
         }
+
+        // Cancel any pending processing timeout since AI is now asking a question
+        cancelProcessingTimeout();
+        
+        // Hide welcome section
+        if (welcomeSection) {
+            welcomeSection.classList.add('hidden');
+        }
+
+        // Add pending class to disable session switching UI
+        document.body.classList.add('has-pending-toolcall');
 
         // Sanitize and limit questions to prevent UI issues
         var safeQuestions = questions.slice(0, 10).map(function(q) {
@@ -2797,9 +2808,7 @@
             return { header: q.header, selected: [], freeformText: '' };
         });
 
-        var overlay = document.createElement('div');
-        overlay.className = 'multi-question-overlay';
-        
+        // Build inline questions HTML
         var questionsHtml = safeQuestions.map(function (q, qIndex) {
             var optionsHtml = '';
             
@@ -2842,120 +2851,136 @@
                 '</div>';
         }).join('');
 
-        overlay.innerHTML =
-            '<div class="multi-question-modal">' +
-            '<div class="mq-header">' +
-            '<span class="mq-title">Questions from AI</span>' +
-            '<button class="mq-close-btn" id="mq-close-' + requestId + '" title="Cancel"><span class="codicon codicon-close"></span></button>' +
-            '</div>' +
-            '<div class="mq-content">' + questionsHtml + '</div>' +
-            '<div class="mq-footer">' +
-            '<button class="form-btn form-btn-cancel" id="mq-cancel-' + requestId + '">Cancel</button>' +
-            '<button class="form-btn form-btn-save" id="mq-submit-' + requestId + '">Submit</button>' +
-            '</div>' +
-            '</div>';
+        // Render questions inline in pendingMessage area
+        if (pendingMessage) {
+            pendingMessage.classList.remove('hidden');
+            pendingMessage.innerHTML = 
+                '<div class="mq-inline-container" id="mq-container-' + requestId + '">' +
+                '<div class="mq-inline-header">' +
+                '<span class="codicon codicon-copilot"></span>' +
+                '<span class="mq-inline-title">AI has questions for you</span>' +
+                '</div>' +
+                '<div class="mq-inline-content">' + questionsHtml + '</div>' +
+                '<div class="mq-inline-footer">' +
+                '<button class="form-btn form-btn-cancel" id="mq-cancel-' + requestId + '">Cancel</button>' +
+                '<button class="form-btn form-btn-save" id="mq-submit-' + requestId + '">Submit</button>' +
+                '</div>' +
+                '</div>';
+        }
 
-        document.body.appendChild(overlay);
-        activeMultiQuestion = { requestId: requestId, overlay: overlay, answers: answers, questions: safeQuestions };
+        activeMultiQuestion = { requestId: requestId, answers: answers, questions: safeQuestions };
 
         // Bind option change events
-        overlay.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function (input) {
-            input.addEventListener('change', function () {
-                var qIndex = parseInt(input.getAttribute('data-qindex'), 10);
-                if (isNaN(qIndex) || qIndex < 0 || qIndex >= safeQuestions.length) return;
-                
-                var isOther = input.getAttribute('data-other') === 'true';
-                var otherInput = document.getElementById('mq-other-' + qIndex);
-                
-                if (safeQuestions[qIndex].multiSelect) {
-                    // Checkbox: toggle in array
-                    if (input.checked) {
-                        if (isOther) {
-                            if (otherInput) otherInput.disabled = false;
+        var container = document.getElementById('mq-container-' + requestId);
+        if (container) {
+            container.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function (input) {
+                input.addEventListener('change', function () {
+                    var qIndex = parseInt(input.getAttribute('data-qindex'), 10);
+                    if (isNaN(qIndex) || qIndex < 0 || qIndex >= safeQuestions.length) return;
+                    
+                    var isOther = input.getAttribute('data-other') === 'true';
+                    var otherInput = document.getElementById('mq-other-' + qIndex);
+                    
+                    if (safeQuestions[qIndex].multiSelect) {
+                        // Checkbox: toggle in array
+                        if (input.checked) {
+                            if (isOther) {
+                                if (otherInput) otherInput.disabled = false;
+                            } else {
+                                answers[qIndex].selected.push(input.value);
+                            }
                         } else {
-                            answers[qIndex].selected.push(input.value);
+                            if (isOther) {
+                                if (otherInput) {
+                                    otherInput.disabled = true;
+                                    otherInput.value = '';
+                                }
+                                answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
+                            } else {
+                                answers[qIndex].selected = answers[qIndex].selected.filter(function (v) { return v !== input.value; });
+                            }
                         }
                     } else {
+                        // Radio: replace
                         if (isOther) {
+                            answers[qIndex].selected = [];
+                            if (otherInput) otherInput.disabled = false;
+                        } else {
+                            answers[qIndex].selected = [input.value];
                             if (otherInput) {
                                 otherInput.disabled = true;
                                 otherInput.value = '';
                             }
-                            answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
-                        } else {
-                            answers[qIndex].selected = answers[qIndex].selected.filter(function (v) { return v !== input.value; });
                         }
                     }
-                } else {
-                    // Radio: replace
-                    if (isOther) {
-                        answers[qIndex].selected = [];
-                        if (otherInput) otherInput.disabled = false;
-                    } else {
-                        answers[qIndex].selected = [input.value];
-                        if (otherInput) {
-                            otherInput.disabled = true;
-                            otherInput.value = '';
-                        }
+                });
+            });
+
+            // Bind "Other" text input changes
+            container.querySelectorAll('.mq-other-input').forEach(function (input) {
+                input.addEventListener('input', function () {
+                    var qIndex = parseInt(input.id.replace('mq-other-', ''), 10);
+                    if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
+                    var otherValue = input.value.trim().substring(0, 500); // Limit length
+                    // Remove any previous "Other: ..." value
+                    answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
+                    if (otherValue) {
+                        answers[qIndex].selected.push('Other: ' + otherValue);
                     }
-                }
+                });
             });
-        });
 
-        // Bind "Other" text input changes
-        overlay.querySelectorAll('.mq-other-input').forEach(function (input) {
-            input.addEventListener('input', function () {
-                var qIndex = parseInt(input.id.replace('mq-other-', ''), 10);
-                if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
-                var otherValue = input.value.trim().substring(0, 500); // Limit length
-                // Remove any previous "Other: ..." value
-                answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
-                if (otherValue) {
-                    answers[qIndex].selected.push('Other: ' + otherValue);
-                }
+            // Bind freeform textarea changes
+            container.querySelectorAll('.mq-freeform').forEach(function (textarea) {
+                textarea.addEventListener('input', function () {
+                    var qIndex = parseInt(textarea.getAttribute('data-qindex'), 10);
+                    if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
+                    answers[qIndex].freeformText = textarea.value.substring(0, 5000); // Limit length
+                });
             });
-        });
 
-        // Bind freeform textarea changes
-        overlay.querySelectorAll('.mq-freeform').forEach(function (textarea) {
-            textarea.addEventListener('input', function () {
-                var qIndex = parseInt(textarea.getAttribute('data-qindex'), 10);
-                if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
-                answers[qIndex].freeformText = textarea.value.substring(0, 5000); // Limit length
-            });
-        });
+            // Bind submit button
+            var submitBtn = document.getElementById('mq-submit-' + requestId);
+            if (submitBtn) {
+                submitBtn.addEventListener('click', function () {
+                    vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: answers });
+                    closeMultiQuestionModal(requestId);
+                });
+            }
 
-        // Bind submit button
-        var submitBtn = document.getElementById('mq-submit-' + requestId);
-        if (submitBtn) {
-            submitBtn.addEventListener('click', function () {
-                vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: answers });
-                closeMultiQuestionModal(requestId);
-            });
+            // Bind cancel button
+            var cancelBtn = document.getElementById('mq-cancel-' + requestId);
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function () {
+                    vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: [], cancelled: true });
+                    closeMultiQuestionModal(requestId);
+                });
+            }
         }
 
-        // Bind cancel buttons
-        var cancelBtn = document.getElementById('mq-cancel-' + requestId);
-        var closeBtn = document.getElementById('mq-close-' + requestId);
-        
-        function handleCancel() {
-            // Send empty answers on cancel
-            var emptyAnswers = safeQuestions.map(function (q) {
-                return { header: q.header, selected: [], freeformText: '' };
-            });
-            vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: emptyAnswers });
-            closeMultiQuestionModal(requestId);
-        }
-
-        if (cancelBtn) cancelBtn.addEventListener('click', handleCancel);
-        if (closeBtn) closeBtn.addEventListener('click', handleCancel);
+        // Re-render current session
+        renderCurrentSession();
+        // Auto-scroll to show the questions
+        scrollToBottom();
     }
 
     function closeMultiQuestionModal(requestId) {
         if (!activeMultiQuestion || activeMultiQuestion.requestId !== requestId) return;
-        if (activeMultiQuestion.overlay && activeMultiQuestion.overlay.parentNode) {
-            activeMultiQuestion.overlay.parentNode.removeChild(activeMultiQuestion.overlay);
+        
+        // Remove inline content from pendingMessage
+        var container = document.getElementById('mq-container-' + requestId);
+        if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
         }
+        
+        // Hide pendingMessage if empty
+        if (pendingMessage && pendingMessage.innerHTML.trim() === '') {
+            pendingMessage.classList.add('hidden');
+        }
+        
+        // Remove pending class
+        document.body.classList.remove('has-pending-toolcall');
+        
         activeMultiQuestion = null;
     }
 
@@ -3182,7 +3207,11 @@
     function handleSlashCommands() {
         if (!chatInput) return;
         var value = chatInput.value;
+        // On some mobile browsers, selectionStart may not be updated synchronously
         var cursorPos = chatInput.selectionStart;
+        if (cursorPos === 0 && value.length > 0) {
+            cursorPos = value.length;
+        }
 
         // Find slash at start of input or after whitespace
         var slashPos = -1;
@@ -3641,7 +3670,13 @@
     function handleAutocomplete() {
         if (!chatInput) return;
         var value = chatInput.value;
+        // On some mobile browsers, selectionStart may not be updated synchronously
+        // with the input event. Fall back to value.length if selectionStart is 0
+        // but there's content (user is likely typing at the end).
         var cursorPos = chatInput.selectionStart;
+        if (cursorPos === 0 && value.length > 0) {
+            cursorPos = value.length;
+        }
         var hashPos = -1;
         for (var i = cursorPos - 1; i >= 0; i--) {
             if (value[i] === '#') { hashPos = i; break; }

@@ -3093,6 +3093,51 @@ button#send-btn:disabled {
     flex-shrink: 0;
 }
 
+/* ===== Multi-Question Inline Display ===== */
+.mq-inline-container {
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128,128,128,0.3)));
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.mq-inline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(128,128,128,0.1));
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.3));
+}
+
+.mq-inline-header .codicon {
+    font-size: 14px;
+    color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.mq-inline-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.mq-inline-content {
+    padding: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.mq-inline-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.3));
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(128,128,128,0.05));
+}
+
 /* Responsive: stack vertically on mobile/narrow screens */
 @media (max-width: 768px) {
     .plan-review-overlay {

@@ -137,7 +137,7 @@ type FromWebviewMessage =
     | { type: 'pauseQueue' }
     | { type: 'resumeQueue' }
     | { type: 'planReviewResponse'; reviewId: string; action: string; revisions: Array<{ revisedPart: string; revisorInstructions: string }> }
-    | { type: 'multiQuestionResponse'; requestId: string; answers: Array<{ header: string; selected: string[]; freeformText?: string }> };
+    | { type: 'multiQuestionResponse'; requestId: string; answers: Array<{ header: string; selected: string[]; freeformText?: string }>; cancelled?: boolean };
 
 
 type InstructionStatus = 'off' | 'correct' | 'missing' | 'modified' | 'corrupted' | 'no-file' | 'unknown';
@@ -162,6 +162,8 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     private _persistedHistory: ToolCallEntry[] = [];
     private _currentToolCallId: string | null = null;
     private _currentExplicitChoices: ParsedChoice[] | undefined;
+    // Current multi-question state for remote sync
+    private _currentMultiQuestions: Question[] | null = null;
 
     // Webview ready state - prevents race condition on first message
     private _webviewReady: boolean = false;
@@ -849,6 +851,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         currentSession: ToolCallEntry[];
         persistedHistory: ToolCallEntry[];
         pendingRequest: { id: string; prompt: string; context?: string; isApprovalQuestion: boolean; choices?: ParsedChoice[] } | null;
+        pendingMultiQuestion: { requestId: string; questions: Question[] } | null;
         settings: { 
             soundEnabled: boolean; 
             desktopNotificationEnabled: boolean;
@@ -863,18 +866,28 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     } {
         // Find pending entry if there's an active request
         let pendingRequest = null;
+        let pendingMultiQuestion = null;
+        
         if (this._currentToolCallId && this._pendingRequests.has(this._currentToolCallId)) {
             const pendingEntry = this._currentSessionCallsMap.get(this._currentToolCallId);
             if (pendingEntry && pendingEntry.status === 'pending') {
-                const choices = this._parseChoices(pendingEntry.prompt);
-                const isApproval = choices.length === 0 && this._isApprovalQuestion(pendingEntry.prompt);
-                pendingRequest = {
-                    id: this._currentToolCallId,
-                    prompt: pendingEntry.prompt,
-                    context: pendingEntry.context,
-                    isApprovalQuestion: isApproval,
-                    choices: choices.length > 0 ? choices : undefined
-                };
+                // Check if this is a multi-question request
+                if (this._currentMultiQuestions && this._currentToolCallId.startsWith('mq_')) {
+                    pendingMultiQuestion = {
+                        requestId: this._currentToolCallId,
+                        questions: this._currentMultiQuestions
+                    };
+                } else {
+                    const choices = this._parseChoices(pendingEntry.prompt);
+                    const isApproval = choices.length === 0 && this._isApprovalQuestion(pendingEntry.prompt);
+                    pendingRequest = {
+                        id: this._currentToolCallId,
+                        prompt: pendingEntry.prompt,
+                        context: pendingEntry.context,
+                        isApprovalQuestion: isApproval,
+                        choices: choices.length > 0 ? choices : undefined
+                    };
+                }
             }
         }
 
@@ -884,6 +897,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             currentSession: this._currentSessionCalls,
             persistedHistory: this._persistedHistory,
             pendingRequest,
+            pendingMultiQuestion,
             settings: {
                 soundEnabled: this._soundEnabled,
                 desktopNotificationEnabled: this._desktopNotificationEnabled,
@@ -1198,6 +1212,8 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
         const requestId = `mq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         this._currentToolCallId = requestId;
+        // Store questions for remote state sync
+        this._currentMultiQuestions = safeQuestions;
 
         this._view.show(this._autoFocusPanelEnabled);
 
@@ -1310,7 +1326,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 this._handleOpenHistoryModal();
                 break;
             case 'searchFiles':
-                this._handleSearchFiles(message.query);
+                this._handleSearchFiles(message.query, this._isRemoteMessageContext);
                 break;
             case 'saveImage':
                 this._handleSaveImage(message.data, message.mimeType);
@@ -1385,7 +1401,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 this._handlePlanReviewResponse(message.reviewId, message.action, message.revisions || []);
                 break;
             case 'multiQuestionResponse':
-                this._handleMultiQuestionResponse(message.requestId, message.answers);
+                this._handleMultiQuestionResponse(message.requestId, message.answers, message.cancelled);
                 break;
             case 'searchSlashCommands':
                 this._handleSearchSlashCommands(message.query);
@@ -1617,8 +1633,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
     /**
      * Handle file search for autocomplete (also includes #terminal, #problems context)
+     * @param isRemote - Whether this request came from a remote client (captured at call time to avoid async race)
      */
-    private async _handleSearchFiles(query: string): Promise<void> {
+    private async _handleSearchFiles(query: string, isRemote: boolean = false): Promise<void> {
         try {
             const queryLower = query.toLowerCase();
             const cacheKey = queryLower || '__all__';
@@ -1630,9 +1647,12 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                     type: 'fileSearchResults' as const,
                     files: cached.results
                 };
-                // Send to local webview and broadcast to remote clients
-                this._view?.webview.postMessage(cachedResultMessage as ToWebviewMessage);
-                this._broadcastCallback?.(cachedResultMessage as ToWebviewMessage);
+                // Send only to the client that initiated the search
+                if (isRemote) {
+                    this._broadcastCallback?.(cachedResultMessage as ToWebviewMessage);
+                } else {
+                    this._view?.webview.postMessage(cachedResultMessage as ToWebviewMessage);
+                }
                 return;
             }
 
@@ -1743,7 +1763,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             
             // Send results only to the client that initiated the search
             // This prevents cross-triggering UI (e.g., remote search showing autocomplete in local webview)
-            if (this._isRemoteMessageContext) {
+            if (isRemote) {
                 // Search was from remote client - send only to remote
                 this._broadcastCallback?.(searchResultMessage as ToWebviewMessage);
             } else {
@@ -1757,7 +1777,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 files: []
             };
             // Send error response only to the client that initiated the search
-            if (this._isRemoteMessageContext) {
+            if (isRemote) {
                 this._broadcastCallback?.(emptyResultMessage as ToWebviewMessage);
             } else {
                 this._view?.webview.postMessage(emptyResultMessage as ToWebviewMessage);
@@ -2420,11 +2440,46 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
      */
     private _handleMultiQuestionResponse(
         requestId: string,
-        answers: Array<{ header: string; selected: string[]; freeformText?: string }>
+        answers: Array<{ header: string; selected: string[]; freeformText?: string }>,
+        cancelled?: boolean
     ): void {
         const resolve = this._pendingRequests.get(requestId);
         if (!resolve) {
             console.warn('[FlowCommand] No pending request for multi-question response:', requestId);
+            return;
+        }
+
+        // Handle cancellation
+        if (cancelled) {
+            // Update the pending entry to show cancelled status
+            const pendingEntry = this._currentSessionCallsMap.get(requestId);
+            if (pendingEntry && pendingEntry.status === 'pending') {
+                pendingEntry.response = '[Cancelled by user]';
+                pendingEntry.status = 'cancelled';
+                pendingEntry.timestamp = Date.now();
+            }
+
+            // Send completion signal to webview
+            this._postMessage({ type: 'multiQuestionCompleted', requestId } as ToWebviewMessage);
+
+            // Broadcast to remote clients
+            if (this._broadcastCallback) {
+                this._broadcastCallback({ type: 'multiQuestionCompleted', requestId });
+            }
+
+            this._setProcessingState(false);
+            this._updateCurrentSessionUI();
+
+            resolve({
+                value: '[CANCELLED: User cancelled multi-question input]',
+                queue: false,
+                attachments: [],
+                cancelled: true
+            });
+
+            this._pendingRequests.delete(requestId);
+            this._currentToolCallId = null;
+            this._currentMultiQuestions = null;
             return;
         }
 
@@ -2471,6 +2526,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
         this._pendingRequests.delete(requestId);
         this._currentToolCallId = null;
+        this._currentMultiQuestions = null;
     }
 
     /**

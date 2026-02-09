@@ -244,6 +244,14 @@
         "title": "FlowCommand: Restart MCP Server"
       },
       {
+        "command": "flowcommand.stopMcp",
+        "title": "FlowCommand: Stop MCP Server"
+      },
+      {
+        "command": "flowcommand.toggleMcp",
+        "title": "FlowCommand: Toggle MCP Server"
+      },
+      {
         "command": "flowcommand.showMcpConfig",
         "title": "FlowCommand: Show MCP Configuration"
       },
@@ -326,6 +334,7 @@
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@vscode/codicons": "^0.0.36",
     "express": "^4.21.2",
+    "qrcode": "^1.5.3",
     "socket.io": "^4.8.1",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
@@ -333,6 +342,7 @@
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "20.x",
+    "@types/qrcode": "^1.5.5",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",

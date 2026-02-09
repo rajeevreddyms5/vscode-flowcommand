@@ -28,7 +28,7 @@ export interface RemoteState {
     currentSession: unknown[];
     persistedHistory: unknown[];
     pendingRequest: { id: string; prompt: string; isApprovalQuestion: boolean; choices?: unknown[] } | null;
-    settings: { soundEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: unknown[] };
+    settings: { soundEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: unknown[]; mcpRunning?: boolean; mcpUrl?: string | null };
 }
 
 /**
@@ -554,6 +554,18 @@ export class RemoteUiServer implements vscode.Disposable {
                     this._onMessageCallback(message, (response) => {
                         socket.emit('message', response);
                     });
+                }
+            });
+
+            // Manual state refresh request
+            socket.on('getState', () => {
+                if (!this._authenticatedSockets.has(socket.id)) {
+                    socket.emit('error', { message: 'Not authenticated' });
+                    return;
+                }
+                if (this._getStateCallback) {
+                    const state = this._getStateCallback();
+                    socket.emit('initialState', state);
                 }
             });
 
@@ -1418,8 +1430,17 @@ self.addEventListener('fetch', event => {
         }
         
         .input-area-container {
+            position: relative;
             flex-shrink: 0;
             padding: 8px;
+            overflow: visible;
+            z-index: 100;
+        }
+        
+        /* Autocomplete dropdown background fix for remote UI */
+        .autocomplete-dropdown {
+            background-color: var(--vscode-editorWidget-background, #252526);
+            backdrop-filter: blur(8px);
         }
         
         /* Connection status indicator */
@@ -2268,6 +2289,9 @@ self.addEventListener('fetch', event => {
             <button class="remote-header-btn" id="notification-permission-btn" title="Enable Notifications" style="display:none;">
                 <span class="codicon codicon-bell-dot"></span>
             </button>
+            <button class="remote-header-btn" id="remote-refresh-btn" title="Refresh">
+                <span class="codicon codicon-refresh"></span>
+            </button>
             <button class="remote-header-btn" id="prompts-modal-btn" title="Reusable Prompts">
                 <span class="codicon codicon-symbol-keyword"></span>
             </button>
@@ -2591,6 +2615,21 @@ self.addEventListener('fetch', event => {
         // Remote users explicitly want notifications since they're using the web interface
         window.mobileNotificationEnabled = true;
         
+        function isIOSSafari() {
+            var ua = navigator.userAgent || '';
+            var isIOS = /iPad|iPhone|iPod/.test(ua);
+            var isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
+            return isIOS && isSafari;
+        }
+
+        function isStandaloneMode() {
+            return (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        function getIosNotificationHelp() {
+            return 'iOS Safari requires iOS 16.4+, adding this app to Home Screen, and granting permission via the bell button.';
+        }
+
         function requestNotificationPermission() {
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission().then(function(permission) {
@@ -2615,7 +2654,11 @@ self.addEventListener('fetch', event => {
                 // Permission not yet requested - show button with bell-dot
                 notifBtn.style.display = 'flex';
                 notifBtn.innerHTML = '<span class="codicon codicon-bell-dot"></span>';
-                notifBtn.title = 'Enable Push Notifications';
+                if (isIOSSafari() && !isStandaloneMode()) {
+                    notifBtn.title = 'iOS Safari requires Add to Home Screen for notifications';
+                } else {
+                    notifBtn.title = 'Enable Push Notifications';
+                }
             } else if (Notification.permission === 'granted') {
                 // Permission granted - show bell (solid)
                 notifBtn.style.display = 'flex';
@@ -2625,7 +2668,11 @@ self.addEventListener('fetch', event => {
                 // Permission denied - show bell-slash
                 notifBtn.style.display = 'flex';
                 notifBtn.innerHTML = '<span class="codicon codicon-bell-slash"></span>';
-                notifBtn.title = 'Notifications Blocked - Enable in browser settings';
+                if (isIOSSafari()) {
+                    notifBtn.title = 'iOS Safari notifications require Home Screen install';
+                } else {
+                    notifBtn.title = 'Notifications Blocked - Enable in browser settings';
+                }
             }
         }
         
@@ -2634,10 +2681,27 @@ self.addEventListener('fetch', event => {
             const notifBtn = document.getElementById('notification-permission-btn');
             if (notifBtn) {
                 notifBtn.addEventListener('click', function() {
+                    if (!('Notification' in window)) {
+                        showVisualNotification('This browser does not support notifications.');
+                        return;
+                    }
                     if (Notification.permission === 'default') {
+                        if (isIOSSafari() && !isStandaloneMode()) {
+                            var iosHelp = getIosNotificationHelp();
+                            alert(iosHelp);
+                            showVisualNotification(iosHelp);
+                            return;
+                        }
                         requestNotificationPermission();
                     } else if (Notification.permission === 'denied') {
-                        alert('Notifications are blocked. Please enable them in your browser settings.');
+                        if (isIOSSafari()) {
+                            var help = getIosNotificationHelp();
+                            alert(help);
+                            showVisualNotification(help);
+                        } else {
+                            alert('Notifications are blocked. Please enable them in your browser settings.');
+                            showVisualNotification('Notifications are blocked. Enable them in your browser settings.');
+                        }
                     } else {
                         // Already granted, just show a confirmation
                         showVisualNotification('Test notification - Push notifications are enabled!');
@@ -2841,16 +2905,16 @@ self.addEventListener('fetch', event => {
                     }, 2000);
                 }
             });
-            
-            socket.on('initialState', (state) => {
-                console.log('[FlowCommand] Received initial state');
+
+            function applyInitialState(state) {
+                console.log('[FlowCommand] Applying initial state');
                 lastSuccessTime = Date.now();  // Track successful message
-                
+
                 // Apply theme from VS Code
                 if (state.theme) {
                     applyTheme(state.theme);
                 }
-                
+
                 if (window.dispatchVSCodeMessage) {
                     if (state.queue !== undefined) {
                         window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled });
@@ -2879,6 +2943,17 @@ self.addEventListener('fetch', event => {
                             choices: state.pendingRequest.choices
                         });
                     }
+                }
+            }
+
+            window.__applyFlowCommandInitialState = applyInitialState;
+            
+            socket.on('initialState', (state) => {
+                console.log('[FlowCommand] Received initial state');
+                if (window.dispatchVSCodeMessage) {
+                    applyInitialState(state);
+                } else {
+                    window.__flowcommandInitialState = state;
                 }
             });
             
@@ -3400,6 +3475,16 @@ self.addEventListener('fetch', event => {
             } catch (e) {}
             if (socket) socket.disconnect();
             window.location.href = '/';
+        });
+
+        // Refresh handler - re-request server state
+        document.getElementById('remote-refresh-btn')?.addEventListener('click', () => {
+            if (socket && isConnected) {
+                socket.emit('getState');
+                showVisualNotification('Refreshing state...');
+            } else {
+                showVisualNotification('Not connected. Please reconnect.');
+            }
         });
         
         // Settings modal button handler

@@ -69,6 +69,21 @@ export class McpServerManager {
         return this._isRunning;
     }
 
+    /**
+     * Get current MCP server URL (if available)
+     */
+    getServerUrl(): string | null {
+        if (!this.port) return null;
+        return `http://localhost:${this.port}/sse`;
+    }
+
+    /**
+     * Get current MCP server port (if available)
+     */
+    getPort(): number | undefined {
+        return this.port;
+    }
+
     async start(reusePort: boolean = false) {
         try {
             if (!reusePort || !this.port) {
@@ -350,7 +365,7 @@ export class McpServerManager {
     async restart() {
         try {
             await Promise.race([
-                this.dispose(),
+                this.stop(),
                 new Promise(resolve => setTimeout(resolve, 2000))
             ]);
         } catch (e) {
@@ -362,7 +377,7 @@ export class McpServerManager {
         vscode.window.showInformationMessage('FlowCommand MCP Server restarted.');
     }
 
-    async dispose() {
+    private async _stop(unregister: boolean): Promise<void> {
         this._isRunning = false;
         try {
             if (this.server) {
@@ -381,8 +396,21 @@ export class McpServerManager {
         } catch (e) {
             console.error('[FlowCommand MCP] Error during dispose:', e);
         } finally {
-            await this.unregisterFromClients();
+            if (unregister) {
+                await this.unregisterFromClients();
+            }
         }
+    }
+
+    /**
+     * Stop MCP server without unregistering clients
+     */
+    async stop(): Promise<void> {
+        await this._stop(false);
+    }
+
+    async dispose() {
+        await this._stop(true);
     }
 
     private async findAvailablePort(): Promise<number> {

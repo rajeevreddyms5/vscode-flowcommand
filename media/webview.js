@@ -73,13 +73,18 @@
     let slashDropdown, slashList, slashEmpty;
     // Settings modal elements
     let settingsModal, settingsModalOverlay, settingsModalClose;
-    let soundToggle, desktopNotificationToggle, autoFocusPanelToggle, mobileNotificationToggle, interactiveApprovalToggle, promptsList, addPromptBtn, addPromptForm;
-    let instructionInjectionSelect, instructionTextArea, instructionTextSaveBtn, instructionInjectBtn, instructionRemoveBtn, instructionResetBtn, instructionStatus;
+    let soundToggle, desktopNotificationToggle, autoFocusPanelToggle, mobileNotificationToggle, interactiveApprovalToggle;
+    let instructionInjectionSelect, instructionTextArea, instructionTextSaveBtn, instructionInjectBtn, instructionRemoveBtn, instructionResetBtn, instructionReinjectBtn, instructionStatus;
     let instructionInjection = 'off';
     let instructionText = '';
+    let instructionState = 'unknown';
+    let mcpRunning = false;
+    let mcpUrl = '';
     // Prompts modal elements
     let promptsModal, promptsModalOverlay, promptsModalClose;
     let promptsModalList, promptsModalAddBtn, promptsModalAddForm;
+    // MCP settings elements
+    let mcpStatusText, mcpUrlText, mcpToggleBtn, mcpCopyBtn;
 
     function init() {
         try {
@@ -337,7 +342,7 @@
         reportBtn.title = 'Report Issue';
         reportBtn.setAttribute('aria-label', 'Report an issue on GitHub');
         reportBtn.addEventListener('click', function () {
-            vscode.postMessage({ type: 'openExternal', url: 'https://github.com/issues/new' });
+            vscode.postMessage({ type: 'openExternal', url: 'https://github.com/rajeevreddyms5/vscode-flowcommand/issues/new' });
         });
         headerButtons.appendChild(reportBtn);
 
@@ -400,23 +405,7 @@
             '</div>';
         modalContent.appendChild(approvalSection);
 
-        // Reusable Prompts section - compact link to dedicated modal
-        var promptsSection = document.createElement('div');
-        promptsSection.className = 'settings-section';
-        promptsSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-symbol-keyword"></span> Reusable Prompts</div>' +
-            '<button class="add-prompt-btn-inline" id="add-prompt-btn" title="Add Prompt" aria-label="Add reusable prompt"><span class="codicon codicon-add"></span></button>' +
-            '</div>' +
-            '<div class="prompts-list" id="prompts-list"></div>' +
-            '<div class="add-prompt-form hidden" id="add-prompt-form">' +
-            '<div class="form-row"><label class="form-label" for="prompt-name-input">Name (used as /command)</label>' +
-            '<input type="text" class="form-input" id="prompt-name-input" placeholder="e.g., fix, test, refactor" maxlength="30"></div>' +
-            '<div class="form-row"><label class="form-label" for="prompt-text-input">Prompt Text</label>' +
-            '<textarea class="form-input form-textarea" id="prompt-text-input" placeholder="Enter the full prompt text..." maxlength="2000"></textarea></div>' +
-            '<div class="form-actions">' +
-            '<button class="form-btn form-btn-cancel" id="cancel-prompt-btn">Cancel</button>' +
-            '<button class="form-btn form-btn-save" id="save-prompt-btn">Save</button></div></div>';
-        modalContent.appendChild(promptsSection);
+        // Note: Reusable Prompts section removed from settings - use dedicated prompts modal (🏷️ icon) instead
 
         // Instruction Injection section
         var instructionSection = document.createElement('div');
@@ -434,6 +423,7 @@
             '</div>' +
             '<div class="instruction-actions" style="margin-top:8px;display:flex;gap:8px;">' +
             '<button class="form-btn form-btn-save" id="instruction-inject-btn">Inject</button>' +
+            '<button class="form-btn form-btn-save" id="instruction-reinject-btn" style="display:none;">Re-inject</button>' +
             '<button class="form-btn form-btn-cancel" id="instruction-remove-btn">Remove</button>' +
             '</div>' +
             '<div class="instruction-status" id="instruction-status" style="margin-top:6px;font-size:11px;"></div>' +
@@ -446,6 +436,27 @@
             '<button class="form-btn form-btn-save" id="instruction-text-save-btn">Save Instructions</button>' +
             '</div>';
         modalContent.appendChild(instructionSection);
+
+        // MCP Server section (advanced)
+        var mcpSection = document.createElement('div');
+        mcpSection.className = 'settings-section';
+        mcpSection.innerHTML = '<div class="settings-section-header">' +
+            '<div class="settings-section-title"><span class="codicon codicon-plug"></span> MCP Server</div>' +
+            '</div>' +
+            '<div class="settings-section-description">Advanced: Control the local MCP server used by external tools. The URL is used for client configuration.</div>' +
+            '<div class="form-row" style="margin-top:8px;">' +
+            '<label class="form-label">Status</label>' +
+            '<div id="mcp-status-text" style="font-size:12px;"></div>' +
+            '</div>' +
+            '<div class="form-row" style="margin-top:6px;">' +
+            '<label class="form-label">URL</label>' +
+            '<div id="mcp-url-text" style="font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; word-break: break-all;"></div>' +
+            '</div>' +
+            '<div class="form-actions" style="margin-top:6px;">' +
+            '<button class="form-btn form-btn-save" id="mcp-toggle-btn">Start</button>' +
+            '<button class="form-btn form-btn-cancel" id="mcp-copy-btn">Copy URL</button>' +
+            '</div>';
+        modalContent.appendChild(mcpSection);
 
         // Assemble modal
         settingsModal.appendChild(modalHeader);
@@ -461,16 +472,18 @@
         autoFocusPanelToggle = document.getElementById('auto-focus-panel-toggle');
         mobileNotificationToggle = document.getElementById('mobile-notification-toggle');
         interactiveApprovalToggle = document.getElementById('interactive-approval-toggle');
-        promptsList = document.getElementById('prompts-list');
-        addPromptBtn = document.getElementById('add-prompt-btn');
-        addPromptForm = document.getElementById('add-prompt-form');
         instructionInjectionSelect = document.getElementById('instruction-injection-select');
         instructionTextArea = document.getElementById('instruction-text-area');
         instructionTextSaveBtn = document.getElementById('instruction-text-save-btn');
         instructionInjectBtn = document.getElementById('instruction-inject-btn');
+        instructionReinjectBtn = document.getElementById('instruction-reinject-btn');
         instructionRemoveBtn = document.getElementById('instruction-remove-btn');
         instructionResetBtn = document.getElementById('instruction-reset-btn');
         instructionStatus = document.getElementById('instruction-status');
+        mcpStatusText = document.getElementById('mcp-status-text');
+        mcpUrlText = document.getElementById('mcp-url-text');
+        mcpToggleBtn = document.getElementById('mcp-toggle-btn');
+        mcpCopyBtn = document.getElementById('mcp-copy-btn');
     }
 
     function createPromptsModal() {
@@ -729,13 +742,6 @@
                 }
             });
         }
-        if (addPromptBtn) addPromptBtn.addEventListener('click', showAddPromptForm);
-        // Add prompt form events (deferred - bind after modal created)
-        var cancelPromptBtn = document.getElementById('cancel-prompt-btn');
-        var savePromptBtn = document.getElementById('save-prompt-btn');
-        if (cancelPromptBtn) cancelPromptBtn.addEventListener('click', hideAddPromptForm);
-        if (savePromptBtn) savePromptBtn.addEventListener('click', saveNewPrompt);
-
         // Prompts modal events
         if (promptsModalClose) promptsModalClose.addEventListener('click', closePromptsModal);
         if (promptsModalOverlay) {
@@ -757,6 +763,11 @@
                 }
             });
         }
+        if (instructionReinjectBtn) {
+            instructionReinjectBtn.addEventListener('click', function () {
+                vscode.postMessage({ type: 'reinjectInstruction' });
+            });
+        }
         if (instructionRemoveBtn) {
             instructionRemoveBtn.addEventListener('click', function () {
                 vscode.postMessage({ type: 'updateInstructionInjection', method: 'off' });
@@ -774,6 +785,16 @@
                 vscode.postMessage({ type: 'resetInstructionText' });
             });
         }
+        if (mcpToggleBtn) {
+            mcpToggleBtn.addEventListener('click', function () {
+                vscode.postMessage({ type: 'mcpToggle' });
+            });
+        }
+        if (mcpCopyBtn) {
+            mcpCopyBtn.addEventListener('click', function () {
+                vscode.postMessage({ type: 'mcpCopyUrl' });
+            });
+        }
 
         window.addEventListener('message', handleExtensionMessage);
         
@@ -784,6 +805,10 @@
             console.log('[FlowCommand Webview] dispatchVSCodeMessage called:', message.type);
             handleExtensionMessage({ data: message });
         };
+        if (window.__flowcommandInitialState && typeof window.__applyFlowCommandInitialState === 'function') {
+            window.__applyFlowCommandInitialState(window.__flowcommandInitialState);
+            window.__flowcommandInitialState = null;
+        }
         console.log('[FlowCommand Webview] dispatchVSCodeMessage registered on window');
     }
 
@@ -1331,6 +1356,9 @@
                 reusablePrompts = message.reusablePrompts || [];
                 instructionInjection = message.instructionInjection || 'off';
                 instructionText = message.instructionText || '';
+                instructionState = message.instructionStatus || 'unknown';
+                mcpRunning = message.mcpRunning === true;
+                mcpUrl = message.mcpUrl || '';
                 updateSoundToggleUI();
                 updateDesktopNotificationToggleUI();
                 updateAutoFocusPanelToggleUI();
@@ -1338,6 +1366,7 @@
                 updateInteractiveApprovalToggleUI();
                 renderPromptsList();
                 updateInstructionUI();
+                updateMcpUI();
                 updateTemplateIndicator();
                 break;
             case 'slashCommandResults':
@@ -2359,7 +2388,6 @@
     function closeSettingsModal() {
         if (!settingsModalOverlay) return;
         settingsModalOverlay.classList.add('hidden');
-        hideAddPromptForm();
     }
 
     function toggleSoundSetting() {
@@ -2435,58 +2463,46 @@
         if (instructionTextArea) {
             instructionTextArea.value = instructionText;
         }
+        if (instructionReinjectBtn) {
+            var needsReinject = instructionInjection !== 'off' &&
+                (instructionState === 'modified' || instructionState === 'missing' || instructionState === 'corrupted' || instructionState === 'no-file');
+            instructionReinjectBtn.style.display = needsReinject ? 'inline-flex' : 'none';
+        }
         if (instructionStatus) {
             if (instructionInjection === 'off') {
                 instructionStatus.innerHTML = '<span style="color:var(--vscode-descriptionForeground);">Status: Not injected</span>';
-            } else if (instructionInjection === 'copilotInstructionsMd') {
-                instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-green, #89d185);"><span class="codicon codicon-check"></span> Injected into .github/copilot-instructions.md (workspace)</span>';
-            } else if (instructionInjection === 'codeGenerationSetting') {
-                instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-green, #89d185);"><span class="codicon codicon-check"></span> Injected into Code Generation settings (workspace)</span>';
+            } else if (instructionState === 'correct') {
+                if (instructionInjection === 'copilotInstructionsMd') {
+                    instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-green, #89d185);"><span class="codicon codicon-check"></span> Injected into .github/copilot-instructions.md (workspace)</span>';
+                } else if (instructionInjection === 'codeGenerationSetting') {
+                    instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-green, #89d185);"><span class="codicon codicon-check"></span> Injected into Code Generation settings (workspace)</span>';
+                }
+            } else if (instructionState === 'modified') {
+                instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-yellow, #d7ba7d);"><span class="codicon codicon-warning"></span> Instructions were modified. Re-inject to restore FlowCommand defaults.</span>';
+            } else if (instructionState === 'missing' || instructionState === 'no-file') {
+                instructionStatus.innerHTML = '<span style="color:var(--vscode-charts-yellow, #d7ba7d);"><span class="codicon codicon-warning"></span> Instructions missing. Re-inject to restore FlowCommand defaults.</span>';
+            } else if (instructionState === 'corrupted') {
+                instructionStatus.innerHTML = '<span style="color:var(--vscode-errorForeground);"><span class="codicon codicon-error"></span> Instruction markers corrupted. Re-inject to fix.</span>';
+            } else {
+                instructionStatus.innerHTML = '<span style="color:var(--vscode-descriptionForeground);">Status: Unknown</span>';
             }
         }
     }
 
-    function showAddPromptForm() {
-        if (!addPromptForm || !addPromptBtn) return;
-        addPromptForm.classList.remove('hidden');
-        addPromptBtn.classList.add('hidden');
-        var nameInput = document.getElementById('prompt-name-input');
-        var textInput = document.getElementById('prompt-text-input');
-        if (nameInput) { nameInput.value = ''; nameInput.focus(); }
-        if (textInput) textInput.value = '';
-        // Clear edit mode
-        addPromptForm.removeAttribute('data-editing-id');
-    }
-
-    function hideAddPromptForm() {
-        if (!addPromptForm || !addPromptBtn) return;
-        addPromptForm.classList.add('hidden');
-        addPromptBtn.classList.remove('hidden');
-        addPromptForm.removeAttribute('data-editing-id');
-    }
-
-    function saveNewPrompt() {
-        var nameInput = document.getElementById('prompt-name-input');
-        var textInput = document.getElementById('prompt-text-input');
-        if (!nameInput || !textInput) return;
-
-        var name = nameInput.value.trim();
-        var prompt = textInput.value.trim();
-
-        if (!name || !prompt) {
-            return;
+    function updateMcpUI() {
+        if (mcpStatusText) {
+            if (mcpRunning) {
+                mcpStatusText.innerHTML = '<span style="color:var(--vscode-charts-green, #89d185);"><span class="codicon codicon-check"></span> Running</span>';
+            } else {
+                mcpStatusText.innerHTML = '<span style="color:var(--vscode-descriptionForeground);">Stopped</span>';
+            }
         }
-
-        var editingId = addPromptForm.getAttribute('data-editing-id');
-        if (editingId) {
-            // Editing existing prompt
-            vscode.postMessage({ type: 'editReusablePrompt', id: editingId, name: name, prompt: prompt });
-        } else {
-            // Adding new prompt
-            vscode.postMessage({ type: 'addReusablePrompt', name: name, prompt: prompt });
+        if (mcpUrlText) {
+            mcpUrlText.textContent = mcpUrl || 'Not available';
         }
-
-        hideAddPromptForm();
+        if (mcpToggleBtn) {
+            mcpToggleBtn.textContent = mcpRunning ? 'Stop' : 'Start';
+        }
     }
 
     // ===== PLAN REVIEW MODAL (for remote/sidebar) =====
@@ -2935,39 +2951,6 @@
     }
 
     function renderPromptsList() {
-        // Render compact list in settings modal
-        if (promptsList) {
-            if (reusablePrompts.length === 0) {
-                promptsList.innerHTML = '';
-            } else {
-                promptsList.innerHTML = reusablePrompts.map(function (p) {
-                    var tooltipText = p.prompt.length > 300 ? p.prompt.substring(0, 300) + '...' : p.prompt;
-                    tooltipText = tooltipText.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return '<div class="prompt-item compact" data-id="' + escapeHtml(p.id) + '" title="' + tooltipText + '">' +
-                        '<div class="prompt-item-content">' +
-                        '<span class="prompt-item-name">/' + escapeHtml(p.name) + '</span>' +
-                        '</div>' +
-                        '<div class="prompt-item-actions">' +
-                        '<button class="prompt-item-btn edit" data-id="' + escapeHtml(p.id) + '" title="Edit"><span class="codicon codicon-edit"></span></button>' +
-                        '<button class="prompt-item-btn delete" data-id="' + escapeHtml(p.id) + '" title="Delete"><span class="codicon codicon-trash"></span></button>' +
-                        '</div></div>';
-                }).join('');
-
-                promptsList.querySelectorAll('.prompt-item-btn.edit').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        var id = btn.getAttribute('data-id');
-                        editPrompt(id);
-                    });
-                });
-                promptsList.querySelectorAll('.prompt-item-btn.delete').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        var id = btn.getAttribute('data-id');
-                        deletePrompt(id);
-                    });
-                });
-            }
-        }
-
         // Render full card list in prompts modal
         renderPromptsModalList();
     }
@@ -3081,24 +3064,6 @@
             vscode.postMessage({ type: 'addReusablePrompt', name: name, prompt: prompt });
         }
         hidePromptsModalAddForm();
-    }
-
-    function editPrompt(id) {
-        var prompt = reusablePrompts.find(function (p) { return p.id === id; });
-        if (!prompt) return;
-
-        var nameInput = document.getElementById('prompt-name-input');
-        var textInput = document.getElementById('prompt-text-input');
-        if (!nameInput || !textInput) return;
-
-        // Show form with existing values
-        addPromptForm.classList.remove('hidden');
-        addPromptBtn.classList.add('hidden');
-        addPromptForm.setAttribute('data-editing-id', id);
-
-        nameInput.value = prompt.name;
-        textInput.value = prompt.prompt;
-        nameInput.focus();
     }
 
     function deletePrompt(id) {
@@ -3605,9 +3570,50 @@
     }
 
     function reorderQueue(fromIndex, toIndex) {
+        // Update the data array
         var removed = promptQueue.splice(fromIndex, 1)[0];
         promptQueue.splice(toIndex, 0, removed);
-        renderQueue();
+        
+        // Move DOM element directly instead of re-rendering (prevents flickering)
+        if (queueList) {
+            var items = queueList.querySelectorAll('.queue-item');
+            var draggedItem = items[fromIndex];
+            var targetItem = items[toIndex];
+            
+            if (draggedItem && targetItem) {
+                // Move the DOM element
+                if (fromIndex < toIndex) {
+                    // Moving down: insert after target
+                    targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+                } else {
+                    // Moving up: insert before target
+                    targetItem.parentNode.insertBefore(draggedItem, targetItem);
+                }
+                
+                // Update data-index attributes and visual numbers
+                var updatedItems = queueList.querySelectorAll('.queue-item');
+                updatedItems.forEach(function(item, idx) {
+                    item.setAttribute('data-index', idx);
+                    item.setAttribute('aria-label', 'Queue item ' + (idx + 1) + ': ' + item.querySelector('.text').textContent);
+                    // Update the visual number in the text
+                    var textSpan = item.querySelector('.text');
+                    if (textSpan && textSpan.textContent) {
+                        // Replace "N. " prefix with new number
+                        textSpan.textContent = textSpan.textContent.replace(/^\d+\.\s*/, (idx + 1) + '. ');
+                    }
+                    // Update bullet class (first item is active, rest are pending)
+                    var bullet = item.querySelector('.bullet');
+                    if (bullet) {
+                        bullet.classList.remove('active', 'pending');
+                        bullet.classList.add(idx === 0 ? 'active' : 'pending');
+                    }
+                });
+            } else {
+                // Fallback to full re-render if elements not found
+                renderQueue();
+            }
+        }
+        
         vscode.postMessage({ type: 'reorderQueue', fromIndex: fromIndex, toIndex: toIndex });
     }
 

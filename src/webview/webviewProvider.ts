@@ -81,7 +81,7 @@ type ToWebviewMessage =
     | { type: 'imageSaved'; attachment: AttachmentInfo }
     | { type: 'openSettingsModal' }
     | { type: 'openPromptsModal' }
-    | { type: 'updateSettings'; soundEnabled: boolean; desktopNotificationEnabled: boolean; autoFocusPanelEnabled: boolean; mobileNotificationEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: ReusablePrompt[]; instructionInjection: string; instructionText: string }
+    | { type: 'updateSettings'; soundEnabled: boolean; desktopNotificationEnabled: boolean; autoFocusPanelEnabled: boolean; mobileNotificationEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: ReusablePrompt[]; instructionInjection: string; instructionText: string; instructionStatus: InstructionStatus; mcpRunning: boolean; mcpUrl: string | null }
     | { type: 'slashCommandResults'; prompts: ReusablePrompt[] }
     | { type: 'playNotificationSound' }
     | { type: 'toolCallCancelled'; id: string }  // AI/user cancelled the pending tool call (e.g. Copilot Stop button)
@@ -129,11 +129,18 @@ type FromWebviewMessage =
     | { type: 'updateInstructionInjection'; method: string }
     | { type: 'updateInstructionText'; text: string }
     | { type: 'resetInstructionText' }
+    | { type: 'reinjectInstruction' }
+    | { type: 'mcpToggle' }
+    | { type: 'mcpStart' }
+    | { type: 'mcpStop' }
+    | { type: 'mcpCopyUrl' }
     | { type: 'pauseQueue' }
     | { type: 'resumeQueue' }
     | { type: 'planReviewResponse'; reviewId: string; action: string; revisions: Array<{ revisedPart: string; revisorInstructions: string }> }
     | { type: 'multiQuestionResponse'; requestId: string; answers: Array<{ header: string; selected: string[]; freeformText?: string }> };
 
+
+type InstructionStatus = 'off' | 'correct' | 'missing' | 'modified' | 'corrupted' | 'no-file' | 'unknown';
 
 export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     public static readonly viewType = 'flowCommandView';
@@ -209,6 +216,11 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     // Instruction injection settings
     private _instructionInjection: string = 'off';
     private _instructionText: string = '';
+    private _instructionStatus: InstructionStatus = 'unknown';
+
+    // MCP server status (for settings UI)
+    private _mcpRunning: boolean = false;
+    private _mcpUrl: string | null = null;
 
     // Flag to prevent config reload during our own updates (avoids race condition)
     private _isUpdatingConfig: boolean = false;
@@ -227,6 +239,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     private _processingStateCallback: ((isProcessing: boolean) => void) | null = null;
     private _processingTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private readonly _PROCESSING_TIMEOUT_MS = 30000; // 30 seconds
+
+    // Flag to track if current message is from remote client (to avoid cross-triggering UI)
+    private _isRemoteMessageContext: boolean = false;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -305,7 +320,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     /**
      * Open settings modal (called from view title bar button)
      */
-    public openSettingsModal(): void {
+    public async openSettingsModal(): Promise<void> {
+        await this._refreshInstructionStatus();
+        await this._refreshMcpStatus();
         this._view?.webview.postMessage({ type: 'openSettingsModal' } as ToWebviewMessage);
         // Don't reload settings here - they should already be in sync
         // Just send current state without reloading from config
@@ -548,8 +565,72 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             interactiveApprovalEnabled: this._interactiveApprovalEnabled,
             reusablePrompts: this._reusablePrompts,
             instructionInjection: this._instructionInjection,
-            instructionText: this._instructionText
+            instructionText: this._instructionText,
+            instructionStatus: this._instructionStatus,
+            mcpRunning: this._mcpRunning,
+            mcpUrl: this._mcpUrl
         } as ToWebviewMessage);
+    }
+
+    /**
+     * Update instruction status from extension command
+     */
+    public setInstructionStatus(status: InstructionStatus): void {
+        this._instructionStatus = status;
+        this._updateSettingsUI();
+    }
+
+    /**
+     * Update MCP status for settings UI
+     */
+    public setMcpStatus(running: boolean, url: string | null): void {
+        this._mcpRunning = running;
+        this._mcpUrl = url;
+        this._updateSettingsUI();
+    }
+
+    /**
+     * Refresh instruction status from extension
+     */
+    private async _refreshInstructionStatus(): Promise<void> {
+        try {
+            const status = await vscode.commands.executeCommand<InstructionStatus>('flowcommand.getInstructionStatus');
+            if (status) {
+                this._instructionStatus = status;
+            }
+        } catch (err) {
+            console.error('[FlowCommand] Failed to refresh instruction status:', err);
+        }
+    }
+
+    /**
+     * Refresh MCP status from extension
+     */
+    private async _refreshMcpStatus(): Promise<void> {
+        try {
+            const status = await vscode.commands.executeCommand<{ running: boolean; url: string | null }>('flowcommand.getMcpStatus');
+            if (status) {
+                this._mcpRunning = status.running === true;
+                this._mcpUrl = status.url || null;
+            }
+        } catch (err) {
+            console.error('[FlowCommand] Failed to refresh MCP status:', err);
+        }
+    }
+
+    /**
+     * Copy MCP server URL to clipboard
+     */
+    private async _copyMcpUrl(): Promise<void> {
+        if (!this._mcpUrl) {
+            await this._refreshMcpStatus();
+        }
+        if (this._mcpUrl) {
+            await vscode.env.clipboard.writeText(this._mcpUrl);
+            vscode.window.showInformationMessage('FlowCommand MCP URL copied to clipboard');
+        } else {
+            vscode.window.showWarningMessage('FlowCommand MCP URL is not available');
+        }
     }
 
     /**
@@ -717,7 +798,14 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
      * Same interface as webview messages
      */
     public handleRemoteMessage(message: FromWebviewMessage): void {
-        this._handleWebviewMessage(message);
+        // Set flag so handlers know this message came from remote client
+        // This prevents cross-triggering UI (e.g., file search results going to both local and remote)
+        this._isRemoteMessageContext = true;
+        try {
+            this._handleWebviewMessage(message);
+        } finally {
+            this._isRemoteMessageContext = false;
+        }
     }
 
     /**
@@ -768,7 +856,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 autoFocusPanelEnabled: this._autoFocusPanelEnabled,
                 mobileNotificationEnabled: this._mobileNotificationEnabled,
                 interactiveApprovalEnabled: this._interactiveApprovalEnabled,
-                reusablePrompts: this._reusablePrompts
+                reusablePrompts: this._reusablePrompts,
+                mcpRunning: this._mcpRunning,
+                mcpUrl: this._mcpUrl
             },
             theme: this._currentTheme
         };
@@ -1237,6 +1327,21 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             case 'resetInstructionText':
                 this._handleResetInstructionText();
                 break;
+            case 'reinjectInstruction':
+                void vscode.commands.executeCommand('flowcommand.reinjectInstructions');
+                break;
+            case 'mcpToggle':
+                void vscode.commands.executeCommand('flowcommand.toggleMcp');
+                break;
+            case 'mcpStart':
+                void vscode.commands.executeCommand('flowcommand.startMcp');
+                break;
+            case 'mcpStop':
+                void vscode.commands.executeCommand('flowcommand.stopMcp');
+                break;
+            case 'mcpCopyUrl':
+                void this._copyMcpUrl();
+                break;
             case 'planReviewResponse':
                 this._handlePlanReviewResponse(message.reviewId, message.action, message.revisions || []);
                 break;
@@ -1596,19 +1701,27 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 files: allResults
             };
             
-            // Send to local webview
-            this._view?.webview.postMessage(searchResultMessage as ToWebviewMessage);
-            // Also broadcast to remote clients
-            this._broadcastCallback?.(searchResultMessage as ToWebviewMessage);
+            // Send results only to the client that initiated the search
+            // This prevents cross-triggering UI (e.g., remote search showing autocomplete in local webview)
+            if (this._isRemoteMessageContext) {
+                // Search was from remote client - send only to remote
+                this._broadcastCallback?.(searchResultMessage as ToWebviewMessage);
+            } else {
+                // Search was from local webview - send only to local
+                this._view?.webview.postMessage(searchResultMessage as ToWebviewMessage);
+            }
         } catch (error) {
             console.error('File search error:', error);
             const emptyResultMessage = {
                 type: 'fileSearchResults' as const,
                 files: []
             };
-            this._view?.webview.postMessage(emptyResultMessage as ToWebviewMessage);
-            // Also broadcast empty results to remote clients
-            this._broadcastCallback?.(emptyResultMessage as ToWebviewMessage);
+            // Send error response only to the client that initiated the search
+            if (this._isRemoteMessageContext) {
+                this._broadcastCallback?.(emptyResultMessage as ToWebviewMessage);
+            } else {
+                this._view?.webview.postMessage(emptyResultMessage as ToWebviewMessage);
+            }
         }
     }
 
@@ -2056,9 +2169,15 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
      * Handle opening settings modal - send settings to webview
      */
     private _handleOpenSettingsModal(): void {
-        // Don't reload settings here - just send current state
-        // Settings are already kept in sync via onDidChangeConfiguration
-        this._updateSettingsUI();
+        // Refresh instruction status when settings open (manual file changes)
+        void Promise.all([
+            this._refreshInstructionStatus(),
+            this._refreshMcpStatus()
+        ]).then(() => {
+            // Don't reload settings here - just send current state
+            // Settings are already kept in sync via onDidChangeConfiguration
+            this._updateSettingsUI();
+        });
     }
 
     /**
@@ -2442,9 +2561,12 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             prompts: matchingPrompts
         };
         
-        // Send to local webview and broadcast to remote clients
-        this._view?.webview.postMessage(message as ToWebviewMessage);
-        this._broadcastCallback?.(message as ToWebviewMessage);
+        // Send results only to the client that initiated the search
+        if (this._isRemoteMessageContext) {
+            this._broadcastCallback?.(message as ToWebviewMessage);
+        } else {
+            this._view?.webview.postMessage(message as ToWebviewMessage);
+        }
     }
 
     /**
@@ -2917,6 +3039,10 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     private _parseChoices(text: string): ParsedChoice[] {
         const choices: ParsedChoice[] = [];
         let match;
+        
+        // Maximum number of choices to show as buttons
+        // If more options detected, return empty array (show only text input)
+        const MAX_CHOICES = 9;
 
         // Search the ENTIRE text for numbered/lettered lists, not just after the last "?"
         // The previous approach failed when examples within the text contained "?" characters
@@ -2981,7 +3107,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                         shortLabel: m.num
                     });
                 }
-                return choices;
+                return choices.length > MAX_CHOICES ? [] : choices;
             }
         }
 
@@ -3009,7 +3135,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                     shortLabel: m.num
                 });
             }
-            return choices;
+            return choices.length > MAX_CHOICES ? [] : choices;
         }
 
         // Pattern 1c: Emoji numbered options (1️⃣, 2️⃣, etc.)
@@ -3048,8 +3174,33 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                         shortLabel: m.num
                     });
                 }
-                return choices;
+                return choices.length > MAX_CHOICES ? [] : choices;
             }
+        }
+
+        // Pattern 1d: Inline emoji numbered options "1️⃣ Dark 2️⃣ Light 3️⃣ System"
+        // Emoji keycaps: digit + optional variation selector (FE0F) + combining enclosing keycap (20E3)
+        const inlineEmojiPattern = /([0-9])\uFE0F?\u20E3\s+([^0-9\uFE0F\u20E3]+?)(?=\s*[0-9]\uFE0F?\u20E3|[.?!]?\s*$)/g;
+        const inlineEmojiMatches: { num: string; text: string }[] = [];
+
+        while ((match = inlineEmojiPattern.exec(singleLine)) !== null) {
+            const optionText = match[2].trim();
+            if (optionText.length >= 2) {
+                inlineEmojiMatches.push({ num: match[1], text: optionText });
+            }
+        }
+
+        if (inlineEmojiMatches.length >= 2) {
+            for (const m of inlineEmojiMatches) {
+                let cleanText = m.text.replace(/[?!]+$/, '').trim();
+                const displayText = cleanText.length > 40 ? cleanText.substring(0, 37) + '...' : cleanText;
+                choices.push({
+                    label: displayText,
+                    value: m.num,
+                    shortLabel: m.num
+                });
+            }
+            return choices.length > MAX_CHOICES ? [] : choices;
         }
 
         // Pattern 2: Lettered options - lines starting with "A." or "A)" or "**A)" through Z
@@ -3093,7 +3244,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                         shortLabel: m.letter
                     });
                 }
-                return choices;
+                return choices.length > MAX_CHOICES ? [] : choices;
             }
         }
 
@@ -3120,7 +3271,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                     shortLabel: m.letter
                 });
             }
-            return choices;
+            return choices.length > MAX_CHOICES ? [] : choices;
         }
 
         // Pattern 2c: Bullet-point options - lines starting with "- ", "* ", or "• "
@@ -3165,8 +3316,34 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                         shortLabel: shortDisplay // Show actual option text on button
                     });
                 }
-                return choices;
+                return choices.length > MAX_CHOICES ? [] : choices;
             }
+        }
+
+        // Pattern 2d: Inline bullet options "- item1 - item2 - item3"
+        // Common in conversational prompts like "Database? - PostgreSQL - MongoDB - SQLite"
+        const inlineBulletPattern = /(?:^|[?:]\s*)\s*-\s+([^-]+?)(?=\s+-\s+|[.?!]?\s*$)/g;
+        const inlineBulletMatches: { text: string }[] = [];
+
+        while ((match = inlineBulletPattern.exec(singleLine)) !== null) {
+            const optionText = match[1].trim();
+            if (optionText.length >= 2) {
+                inlineBulletMatches.push({ text: optionText });
+            }
+        }
+
+        if (inlineBulletMatches.length >= 2) {
+            for (const m of inlineBulletMatches) {
+                let cleanText = m.text.replace(/[?!]+$/, '').trim();
+                const displayText = cleanText.length > 40 ? cleanText.substring(0, 37) + '...' : cleanText;
+                const shortDisplay = cleanText.length > 20 ? cleanText.substring(0, 17) + '...' : cleanText;
+                choices.push({
+                    label: displayText,
+                    value: cleanText, // Use actual text as value for bullet points
+                    shortLabel: shortDisplay // Show actual option text on button
+                });
+            }
+            return choices.length > MAX_CHOICES ? [] : choices;
         }
 
         // Pattern 3: "Option A:" or "Option 1:" style (supports multi-digit numbers like Option 10)
@@ -3191,7 +3368,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                     shortLabel: m.id
                 });
             }
-            return choices;
+            return choices.length > MAX_CHOICES ? [] : choices;
         }
 
         return choices;

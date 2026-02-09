@@ -243,13 +243,23 @@ Create a 3-step plan for setting up a Node.js project and present it using plan_
 
 ---
 
-## 13. MCP Server (External IDEs) (FIXME: Entire section needs attention)
+## 13. MCP Server (External IDEs)
 
-### 13.1 MCP Configuration
+### 13.1 MCP Status (Settings)
 
-- [ ] Show config: Run command "FlowCommand: Show MCP Configuration" → URL displayed (default: http://localhost:3579/sse)
+- [ ] Open Settings: MCP Server section is visible under Settings (Advanced)
+- [ ] Status: Click Start/Stop toggle → Status text updates (Running/Stopped)
+- [ ] URL: When running, URL shows http://localhost:<port>/sse
+- [ ] Copy URL: Click "Copy URL" → Clipboard contains MCP URL
 
-### 13.2 External Client (Optional)
+### 13.2 MCP Commands
+
+- [ ] Start: Run "FlowCommand: Start MCP Server" → Status shows Running
+- [ ] Stop: Run "FlowCommand: Stop MCP Server" → Status shows Stopped
+- [ ] Toggle: Run "FlowCommand: Toggle MCP Server" → Status toggles
+- [ ] Show config: Run "FlowCommand: Show MCP Configuration" → URL displayed (default: http://localhost:3579/sse)
+
+### 13.3 External Client (Optional)
 
 - [ ] Connect: Configure Kiro/Cursor with MCP URL → MCP client connects
 - [ ] ask_user: Use ask_user from external IDE → FlowCommand receives request

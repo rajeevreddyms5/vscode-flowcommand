@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as QRCode from 'qrcode';
 import { FlowCommandWebviewProvider } from './webview/webviewProvider';
 import { registerTools } from './tools';
 import { McpServerManager } from './mcp/mcpServer';
@@ -53,6 +54,18 @@ async function hasExternalMcpClientsAsync(): Promise<boolean> {
     return false;
 }
 
+function getMcpStatus() {
+    const running = mcpServer?.isRunning() ?? false;
+    const url = mcpServer?.getServerUrl() ?? null;
+    const port = mcpServer?.getPort() ?? null;
+    return { running, url, port };
+}
+
+function refreshMcpStatus(): void {
+    const status = getMcpStatus();
+    webviewProvider?.setMcpStatus(status.running, status.url);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     // Store context reference for state storage
     extensionContext = context;
@@ -91,6 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Initialize MCP server manager (but don't start yet)
     mcpServer = new McpServerManager(provider, context.extensionUri);
+    refreshMcpStatus();
 
     // Check if MCP should auto-start based on settings and external client configs
     // Deferred to avoid blocking activation with file I/O
@@ -104,12 +118,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Note: Check is deferred to avoid blocking extension activation with file I/O
     if (mcpEnabled) {
         // Explicitly enabled - start immediately without checking external clients
-        mcpServer.start();
+        mcpServer.start().then(() => refreshMcpStatus());
     } else if (autoStartIfClients) {
         // Defer the external client check to avoid blocking activation
         hasExternalMcpClientsAsync().then(hasClients => {
             if (hasClients && mcpServer) {
-                mcpServer.start();
+                mcpServer.start().then(() => refreshMcpStatus());
             }
         }).catch(err => {
             console.error('[FlowCommand] Failed to check external MCP clients:', err);
@@ -120,6 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
     const startMcpCmd = vscode.commands.registerCommand('flowcommand.startMcp', async () => {
         if (mcpServer && !mcpServer.isRunning()) {
             await mcpServer.start();
+            refreshMcpStatus();
             vscode.window.showInformationMessage('FlowCommand MCP Server started');
         } else if (mcpServer?.isRunning()) {
             vscode.window.showInformationMessage('FlowCommand MCP Server is already running');
@@ -130,7 +145,38 @@ export function activate(context: vscode.ExtensionContext) {
     const restartMcpCmd = vscode.commands.registerCommand('flowcommand.restartMcp', async () => {
         if (mcpServer) {
             await mcpServer.restart();
+            refreshMcpStatus();
         }
+    });
+
+    // Stop MCP server command
+    const stopMcpCmd = vscode.commands.registerCommand('flowcommand.stopMcp', async () => {
+        if (!mcpServer || !mcpServer.isRunning()) {
+            vscode.window.showInformationMessage('FlowCommand MCP Server is not running');
+            return;
+        }
+        await mcpServer.stop();
+        refreshMcpStatus();
+        vscode.window.showInformationMessage('FlowCommand MCP Server stopped');
+    });
+
+    // Toggle MCP server command
+    const toggleMcpCmd = vscode.commands.registerCommand('flowcommand.toggleMcp', async () => {
+        if (!mcpServer) return;
+        if (mcpServer.isRunning()) {
+            await mcpServer.stop();
+            refreshMcpStatus();
+            vscode.window.showInformationMessage('FlowCommand MCP Server stopped');
+        } else {
+            await mcpServer.start();
+            refreshMcpStatus();
+            vscode.window.showInformationMessage('FlowCommand MCP Server started');
+        }
+    });
+
+    // Get MCP status command (used by settings UI)
+    const getMcpStatusCmd = vscode.commands.registerCommand('flowcommand.getMcpStatus', () => {
+        return getMcpStatus();
     });
 
     // Show MCP configuration command
@@ -186,7 +232,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Open settings modal command (triggered from view title bar)
     const openSettingsCmd = vscode.commands.registerCommand('flowcommand.openSettings', () => {
-        provider.openSettingsModal();
+        void provider.openSettingsModal();
     });
 
     // Open prompts modal command (triggered from view title bar)
@@ -245,19 +291,30 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(remoteStatusBarItem);
 
     // Function to update status bar based on server state
-    function updateRemoteStatusBar() {
+    async function updateRemoteStatusBar() {
         if (!remoteStatusBarItem) return;
         
         if (remoteServer?.isRunning()) {
             const info = remoteServer.getConnectionInfo();
             const networkUrl = info.urls.find(u => !u.includes('localhost')) || info.urls[0];
             remoteStatusBarItem.text = '$(broadcast) FlowCommand';
-            remoteStatusBarItem.tooltip = new vscode.MarkdownString(
-                `**FlowCommand Remote Server**\n\n` +
-                `**URL:** \`${networkUrl}\`\n\n` +
-                `**PIN:** \`${info.pin}\`\n\n` +
-                `_Click to copy_`
-            );
+            let qrDataUrl: string | undefined;
+            try {
+                qrDataUrl = await QRCode.toDataURL(networkUrl, { margin: 1, width: 160 });
+            } catch (err) {
+                console.error('[FlowCommand] Failed to generate QR code:', err);
+            }
+
+            const tooltip = new vscode.MarkdownString(undefined, true);
+            tooltip.appendMarkdown(`**FlowCommand Remote Server**\n\n`);
+            tooltip.appendMarkdown(`**URL:** \`${networkUrl}\`\n\n`);
+            tooltip.appendMarkdown(`**PIN:** \`${info.pin}\`\n\n`);
+            if (qrDataUrl) {
+                tooltip.appendMarkdown(`![FlowCommand QR](${qrDataUrl})\n\n`);
+            }
+            tooltip.appendMarkdown('_Click to copy_');
+            tooltip.isTrusted = true;
+            remoteStatusBarItem.tooltip = tooltip;
             remoteStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
             remoteStatusBarItem.show();
         } else {
@@ -274,7 +331,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(
                 `FlowCommand Remote started: ${info.urls[1] || info.urls[0]} | PIN: ${info.pin}`
             );
-            updateRemoteStatusBar();
+            void updateRemoteStatusBar();
         }).catch(err => {
             console.error('[FlowCommand] Failed to start remote server:', err);
         });
@@ -286,12 +343,12 @@ export function activate(context: vscode.ExtensionContext) {
         
         if (remoteServer.isRunning()) {
             remoteServer.stop();
-            updateRemoteStatusBar();
+            void updateRemoteStatusBar();
             vscode.window.showInformationMessage('FlowCommand Remote Server stopped');
         } else {
             try {
                 await remoteServer.start();
-                updateRemoteStatusBar();
+                void updateRemoteStatusBar();
                 const info = remoteServer.getConnectionInfo();
                 const networkUrl = info.urls.find(u => !u.includes('localhost')) || info.urls[0];
                 
@@ -324,7 +381,7 @@ export function activate(context: vscode.ExtensionContext) {
         
         try {
             await remoteServer.start();
-            updateRemoteStatusBar();
+            void updateRemoteStatusBar();
             const info = remoteServer.getConnectionInfo();
             vscode.window.showInformationMessage(
                 `Remote Server started: ${info.urls[1] || info.urls[0]} | PIN: ${info.pin}`
@@ -344,7 +401,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         
         remoteServer.stop();
-        updateRemoteStatusBar();
+        void updateRemoteStatusBar();
         vscode.window.showInformationMessage('Remote server stopped');
     });
 
@@ -372,10 +429,21 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Reinject instructions command (force)
+    const reinjectInstructionsCmd = vscode.commands.registerCommand('flowcommand.reinjectInstructions', async () => {
+        await handleInstructionInjection(true);
+    });
+
+    // Get current instruction status (used by settings UI)
+    const getInstructionStatusCmd = vscode.commands.registerCommand('flowcommand.getInstructionStatus', async () => {
+        return await getInstructionStatus();
+    });
+
     context.subscriptions.push(
-        startMcpCmd, restartMcpCmd, showMcpConfigCmd, 
+        startMcpCmd, restartMcpCmd, stopMcpCmd, toggleMcpCmd, getMcpStatusCmd, showMcpConfigCmd, 
         openHistoryCmd, clearSessionCmd, openSettingsCmd, openPromptsCmd,
         toggleRemoteCmd, startRemoteCmd, stopRemoteCmd, showRemoteUrlCmd,
+        reinjectInstructionsCmd, getInstructionStatusCmd,
         remoteServer
     );
 }
@@ -383,6 +451,8 @@ export function activate(context: vscode.ExtensionContext) {
 const FLOWCOMMAND_SECTION_START = '<!-- [FlowCommand] START -->';
 const FLOWCOMMAND_SECTION_END = '<!-- [FlowCommand] END -->';
 const FLOWCOMMAND_MARKER = '[FlowCommand]';
+
+type InstructionStatus = 'off' | 'correct' | 'missing' | 'modified' | 'corrupted' | 'no-file';
 
 // Storage keys for tracking injection state
 const INJECTION_STATE_KEY = 'flowcommand.injectionState';
@@ -493,6 +563,37 @@ function checkCodeGenSettingsState(expectedContent: string): 'correct' | 'missin
     }
 
     return 'modified';
+}
+
+/**
+ * Get current instruction injection status for UI display
+ */
+async function getInstructionStatus(): Promise<InstructionStatus> {
+    const config = vscode.workspace.getConfiguration('flowcommand');
+    const method = config.get<string>('instructionInjection', 'off');
+    const instructionText = getInstructionText();
+
+    if (method === 'off') {
+        return 'off';
+    }
+
+    if (method === 'copilotInstructionsMd') {
+        return await checkCopilotInstructionsState(instructionText);
+    }
+
+    const settingsState = checkCodeGenSettingsState(instructionText);
+    if (settingsState === 'correct') return 'correct';
+    if (settingsState === 'missing') return 'missing';
+    return 'modified';
+}
+
+/**
+ * Refresh status in the webview provider (if available)
+ */
+async function refreshInstructionStatus(): Promise<InstructionStatus> {
+    const status = await getInstructionStatus();
+    webviewProvider?.setInstructionStatus(status);
+    return status;
 }
 
 /**
@@ -642,6 +743,12 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
         }
     } catch (err) {
         console.error('[FlowCommand] Failed to handle instruction injection:', err);
+    } finally {
+        try {
+            await refreshInstructionStatus();
+        } catch (err) {
+            console.error('[FlowCommand] Failed to refresh instruction status:', err);
+        }
     }
 }
 

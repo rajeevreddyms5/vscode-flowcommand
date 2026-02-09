@@ -1391,6 +1391,12 @@
             case 'planReviewCompleted':
                 closePlanReviewModal(message.reviewId);
                 break;
+            case 'multiQuestionPending':
+                showMultiQuestionModal(message.requestId, message.questions);
+                break;
+            case 'multiQuestionCompleted':
+                closeMultiQuestionModal(message.requestId);
+                break;
         }
     }
 
@@ -2731,6 +2737,178 @@
             activePlanReview.overlay.parentNode.removeChild(activePlanReview.overlay);
         }
         activePlanReview = null;
+    }
+
+    // Multi-question modal
+    var activeMultiQuestion = null;
+
+    function showMultiQuestionModal(requestId, questions) {
+        // Close existing if any
+        if (activeMultiQuestion) {
+            closeMultiQuestionModal(activeMultiQuestion.requestId);
+        }
+
+        // Track answers for each question
+        var answers = questions.map(function (q) {
+            return { header: q.header, selected: [], freeformText: '' };
+        });
+
+        var overlay = document.createElement('div');
+        overlay.className = 'multi-question-overlay';
+        
+        var questionsHtml = questions.map(function (q, qIndex) {
+            var optionsHtml = '';
+            
+            if (q.options && q.options.length > 0) {
+                // Render options as radio buttons or checkboxes
+                var inputType = q.multiSelect ? 'checkbox' : 'radio';
+                optionsHtml = q.options.map(function (opt, oIndex) {
+                    var recommendedBadge = opt.recommended ? '<span class="mq-recommended">recommended</span>' : '';
+                    var description = opt.description ? '<span class="mq-option-desc">' + escapeHtml(opt.description) + '</span>' : '';
+                    return '<label class="mq-option' + (opt.recommended ? ' mq-option-recommended' : '') + '">' +
+                        '<input type="' + inputType + '" name="mq-q' + qIndex + '" value="' + escapeHtml(opt.label) + '" data-qindex="' + qIndex + '" data-oindex="' + oIndex + '" />' +
+                        '<span class="mq-option-label">' + escapeHtml(opt.label) + recommendedBadge + '</span>' +
+                        description +
+                        '</label>';
+                }).join('');
+                
+                // Add "Other" option with text input
+                optionsHtml += '<label class="mq-option mq-option-other">' +
+                    '<input type="' + inputType + '" name="mq-q' + qIndex + '" value="__other__" data-qindex="' + qIndex + '" data-other="true" />' +
+                    '<span class="mq-option-label">Other:</span>' +
+                    '<input type="text" class="mq-other-input" id="mq-other-' + qIndex + '" placeholder="Type your answer..." disabled />' +
+                    '</label>';
+            }
+            
+            // Freeform input (always shown if allowFreeformInput, or if no options)
+            var freeformHtml = '';
+            if (!q.options || q.options.length === 0 || q.allowFreeformInput) {
+                var placeholder = q.options && q.options.length > 0 ? 'Additional details (optional)...' : 'Type your answer...';
+                freeformHtml = '<textarea class="mq-freeform" id="mq-freeform-' + qIndex + '" data-qindex="' + qIndex + '" placeholder="' + placeholder + '" rows="2"></textarea>';
+            }
+            
+            return '<div class="mq-question" data-qindex="' + qIndex + '">' +
+                '<div class="mq-question-header">' +
+                '<span class="mq-question-number">' + (qIndex + 1) + '</span>' +
+                '<span class="mq-question-label">' + escapeHtml(q.header) + '</span>' +
+                '</div>' +
+                '<div class="mq-question-text">' + escapeHtml(q.question) + '</div>' +
+                '<div class="mq-options">' + optionsHtml + '</div>' +
+                freeformHtml +
+                '</div>';
+        }).join('');
+
+        overlay.innerHTML =
+            '<div class="multi-question-modal">' +
+            '<div class="mq-header">' +
+            '<span class="mq-title">Questions from AI</span>' +
+            '<button class="mq-close-btn" id="mq-close-' + requestId + '" title="Cancel"><span class="codicon codicon-close"></span></button>' +
+            '</div>' +
+            '<div class="mq-content">' + questionsHtml + '</div>' +
+            '<div class="mq-footer">' +
+            '<button class="form-btn form-btn-cancel" id="mq-cancel-' + requestId + '">Cancel</button>' +
+            '<button class="form-btn form-btn-save" id="mq-submit-' + requestId + '">Submit</button>' +
+            '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        activeMultiQuestion = { requestId: requestId, overlay: overlay, answers: answers, questions: questions };
+
+        // Bind option change events
+        overlay.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function (input) {
+            input.addEventListener('change', function () {
+                var qIndex = parseInt(input.getAttribute('data-qindex'), 10);
+                var isOther = input.getAttribute('data-other') === 'true';
+                var otherInput = document.getElementById('mq-other-' + qIndex);
+                
+                if (questions[qIndex].multiSelect) {
+                    // Checkbox: toggle in array
+                    if (input.checked) {
+                        if (isOther) {
+                            if (otherInput) otherInput.disabled = false;
+                        } else {
+                            answers[qIndex].selected.push(input.value);
+                        }
+                    } else {
+                        if (isOther) {
+                            if (otherInput) {
+                                otherInput.disabled = true;
+                                otherInput.value = '';
+                            }
+                            answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
+                        } else {
+                            answers[qIndex].selected = answers[qIndex].selected.filter(function (v) { return v !== input.value; });
+                        }
+                    }
+                } else {
+                    // Radio: replace
+                    if (isOther) {
+                        answers[qIndex].selected = [];
+                        if (otherInput) otherInput.disabled = false;
+                    } else {
+                        answers[qIndex].selected = [input.value];
+                        if (otherInput) {
+                            otherInput.disabled = true;
+                            otherInput.value = '';
+                        }
+                    }
+                }
+            });
+        });
+
+        // Bind "Other" text input changes
+        overlay.querySelectorAll('.mq-other-input').forEach(function (input) {
+            input.addEventListener('input', function () {
+                var qIndex = parseInt(input.id.replace('mq-other-', ''), 10);
+                var otherValue = input.value.trim();
+                // Remove any previous "Other: ..." value
+                answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
+                if (otherValue) {
+                    answers[qIndex].selected.push('Other: ' + otherValue);
+                }
+            });
+        });
+
+        // Bind freeform textarea changes
+        overlay.querySelectorAll('.mq-freeform').forEach(function (textarea) {
+            textarea.addEventListener('input', function () {
+                var qIndex = parseInt(textarea.getAttribute('data-qindex'), 10);
+                answers[qIndex].freeformText = textarea.value;
+            });
+        });
+
+        // Bind submit button
+        var submitBtn = document.getElementById('mq-submit-' + requestId);
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function () {
+                vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: answers });
+                closeMultiQuestionModal(requestId);
+            });
+        }
+
+        // Bind cancel buttons
+        var cancelBtn = document.getElementById('mq-cancel-' + requestId);
+        var closeBtn = document.getElementById('mq-close-' + requestId);
+        
+        function handleCancel() {
+            // Send empty answers on cancel
+            var emptyAnswers = questions.map(function (q) {
+                return { header: q.header, selected: [], freeformText: '' };
+            });
+            vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: emptyAnswers });
+            closeMultiQuestionModal(requestId);
+        }
+
+        if (cancelBtn) cancelBtn.addEventListener('click', handleCancel);
+        if (closeBtn) closeBtn.addEventListener('click', handleCancel);
+    }
+
+    function closeMultiQuestionModal(requestId) {
+        if (!activeMultiQuestion || activeMultiQuestion.requestId !== requestId) return;
+        if (activeMultiQuestion.overlay && activeMultiQuestion.overlay.parentNode) {
+            activeMultiQuestion.overlay.parentNode.removeChild(activeMultiQuestion.overlay);
+        }
+        activeMultiQuestion = null;
     }
 
     function renderPromptsList() {

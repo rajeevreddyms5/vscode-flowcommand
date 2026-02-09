@@ -14,6 +14,35 @@ export interface AskUserToolResult {
     attachments: string[];
 }
 
+// Types for ask_questions tool
+export interface QuestionOption {
+    label: string;
+    description?: string;
+    recommended?: boolean;
+}
+
+export interface Question {
+    header: string;
+    question: string;
+    options?: QuestionOption[];
+    multiSelect?: boolean;
+    allowFreeformInput?: boolean;
+}
+
+export interface AskQuestionsInput {
+    questions: Question[];
+}
+
+export interface QuestionAnswer {
+    header: string;
+    selectedOptions?: string[];
+    freeformText?: string;
+}
+
+export interface AskQuestionsResult {
+    answers: QuestionAnswer[];
+}
+
 /**
  * Reads a file as Uint8Array for efficient binary handling
  */

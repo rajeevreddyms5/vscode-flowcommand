@@ -5,6 +5,7 @@ import { FILE_EXCLUSION_PATTERNS, FILE_SEARCH_EXCLUSION_PATTERNS, formatExcludeP
 import { ContextManager, ContextReferenceType, ContextReference } from '../context';
 import { resolvePlanReview } from '../planReview/index';
 import { PlanReviewPanelResult } from '../planReview/types';
+import { Question } from '../tools';
 
 // Queued prompt interface
 export interface QueuedPrompt {
@@ -88,7 +89,9 @@ type ToWebviewMessage =
     | { type: 'contextSearchResults'; suggestions: Array<{ type: string; label: string; description: string; detail: string }> }
     | { type: 'contextReferenceAdded'; reference: { id: string; type: string; label: string; content: string } }
     | { type: 'planReviewPending'; reviewId: string; title: string; plan: string }
-    | { type: 'planReviewCompleted'; reviewId: string; status: string };
+    | { type: 'planReviewCompleted'; reviewId: string; status: string }
+    | { type: 'multiQuestionPending'; requestId: string; questions: Question[] }
+    | { type: 'multiQuestionCompleted'; requestId: string };
 
 type FromWebviewMessage =
     | { type: 'submit'; value: string; attachments: AttachmentInfo[] }
@@ -128,7 +131,8 @@ type FromWebviewMessage =
     | { type: 'resetInstructionText' }
     | { type: 'pauseQueue' }
     | { type: 'resumeQueue' }
-    | { type: 'planReviewResponse'; reviewId: string; action: string; revisions: Array<{ revisedPart: string; revisorInstructions: string }> };
+    | { type: 'planReviewResponse'; reviewId: string; action: string; revisions: Array<{ revisedPart: string; revisorInstructions: string }> }
+    | { type: 'multiQuestionResponse'; requestId: string; answers: Array<{ header: string; selected: string[]; freeformText?: string }> };
 
 
 export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -1008,6 +1012,98 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     }
 
     /**
+     * Wait for user response to multiple questions
+     * Used when AI calls ask_user with questions array (multi-question mode)
+     */
+    public async waitForMultiQuestionResponse(questions: Question[]): Promise<UserResponseResult> {
+        // If view is not available, open the sidebar first
+        if (!this._view) {
+            await vscode.commands.executeCommand('taskSyncView.focus');
+
+            let waited = 0;
+            while (!this._view && waited < this._VIEW_OPEN_TIMEOUT_MS) {
+                await new Promise(resolve => setTimeout(resolve, this._VIEW_OPEN_POLL_INTERVAL_MS));
+                waited += this._VIEW_OPEN_POLL_INTERVAL_MS;
+            }
+
+            if (!this._view) {
+                throw new Error(`Failed to open TaskSync sidebar after ${this._VIEW_OPEN_TIMEOUT_MS}ms.`);
+            }
+        }
+
+        // Cancel any existing pending request
+        if (this._currentToolCallId && this._pendingRequests.has(this._currentToolCallId)) {
+            const oldResolve = this._pendingRequests.get(this._currentToolCallId);
+            if (oldResolve) {
+                oldResolve({
+                    value: '[CANCELLED: New request superseded this one]',
+                    queue: false,
+                    attachments: [],
+                    cancelled: true
+                });
+                this._pendingRequests.delete(this._currentToolCallId);
+            }
+        }
+
+        const requestId = `mq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        this._currentToolCallId = requestId;
+
+        this._view.show(this._autoFocusPanelEnabled);
+
+        // Build a combined prompt for display in history
+        const combinedPrompt = questions.map((q, i) => `${i + 1}. [${q.header}] ${q.question}`).join('\n');
+
+        // Add pending entry to current session
+        const pendingEntry: ToolCallEntry = {
+            id: requestId,
+            prompt: combinedPrompt,
+            response: '',
+            timestamp: Date.now(),
+            isFromQueue: false,
+            status: 'pending'
+        };
+        this._currentSessionCalls.unshift(pendingEntry);
+        this._currentSessionCallsMap.set(requestId, pendingEntry);
+
+        // Wait for webview to be ready
+        if (!this._webviewReady) {
+            const maxWaitMs = 3000;
+            const pollIntervalMs = 50;
+            let waited = 0;
+            while (!this._webviewReady && waited < maxWaitMs) {
+                await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                waited += pollIntervalMs;
+            }
+        }
+
+        // Prepare message for webview
+        const multiQuestionMessage = {
+            type: 'multiQuestionPending' as const,
+            requestId,
+            questions
+        };
+
+        // Send to webview
+        if (this._webviewReady && this._view) {
+            this._view.webview.postMessage(multiQuestionMessage);
+            this.playNotificationSound();
+            this._showDesktopNotification('AI has multiple questions for you');
+        }
+
+        // Broadcast to remote clients
+        if (this._broadcastCallback) {
+            this._broadcastCallback(multiQuestionMessage);
+        }
+
+        this._setProcessingState(false);
+        this._updateCurrentSessionUI();
+
+        return new Promise<UserResponseResult>((resolve) => {
+            this._pendingRequests.set(requestId, resolve);
+        });
+    }
+
+    /**
      * Check if queue is enabled
      */
     public isQueueEnabled(): boolean {
@@ -1120,6 +1216,9 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                 break;
             case 'planReviewResponse':
                 this._handlePlanReviewResponse(message.reviewId, message.action, message.revisions || []);
+                break;
+            case 'multiQuestionResponse':
+                this._handleMultiQuestionResponse(message.requestId, message.answers);
                 break;
             case 'searchSlashCommands':
                 this._handleSearchSlashCommands(message.query);
@@ -2131,6 +2230,62 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             // This ensures synchronization even if the main planReview() flow takes time
             this.broadcastPlanReviewCompleted(reviewId, broadcastStatus);
         }
+    }
+
+    /**
+     * Handle multi-question response from webview
+     */
+    private _handleMultiQuestionResponse(
+        requestId: string,
+        answers: Array<{ header: string; selected: string[]; freeformText?: string }>
+    ): void {
+        const resolve = this._pendingRequests.get(requestId);
+        if (!resolve) {
+            console.warn('[TaskSync] No pending request for multi-question response:', requestId);
+            return;
+        }
+
+        // Format answers as structured JSON for the AI
+        const formattedAnswers = answers.map(a => {
+            const answer: Record<string, unknown> = {
+                question: a.header,
+                selectedOptions: a.selected
+            };
+            if (a.freeformText) {
+                answer.freeformText = a.freeformText;
+            }
+            return answer;
+        });
+
+        const responseJson = JSON.stringify({ answers: formattedAnswers }, null, 2);
+
+        // Update the pending entry
+        const pendingEntry = this._currentSessionCallsMap.get(requestId);
+        if (pendingEntry && pendingEntry.status === 'pending') {
+            pendingEntry.response = responseJson;
+            pendingEntry.status = 'completed';
+            pendingEntry.timestamp = Date.now();
+        }
+
+        // Send completion signal to webview
+        this._postMessage({ type: 'multiQuestionCompleted', requestId } as ToWebviewMessage);
+
+        // Broadcast to remote clients
+        if (this._broadcastCallback) {
+            this._broadcastCallback({ type: 'multiQuestionCompleted', requestId });
+        }
+
+        this._setProcessingState(true);
+        this._updateCurrentSessionUI();
+
+        resolve({
+            value: responseJson,
+            queue: this._queueEnabled,
+            attachments: []
+        });
+
+        this._pendingRequests.delete(requestId);
+        this._currentToolCallId = null;
     }
 
     /**

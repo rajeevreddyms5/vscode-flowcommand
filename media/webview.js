@@ -66,7 +66,7 @@
     // Edit mode elements
     let actionsLeft, actionsBar, editActionsContainer, editCancelBtn, editConfirmBtn;
     // Approval modal elements
-    let approvalModal, approvalContinueBtn, approvalNoBtn, approvalEndBtn;
+    let approvalModal, approvalContinueBtn, approvalNoBtn;
     // End session button (always visible in actions bar)
     let endSessionBtn;
     // Slash command elements
@@ -276,16 +276,6 @@
         var buttonsContainer = document.createElement('div');
         buttonsContainer.className = 'approval-buttons';
 
-        // End button (session control - isolated on left with icon)
-        approvalEndBtn = document.createElement('button');
-        approvalEndBtn.className = 'approval-btn approval-end-btn';
-        approvalEndBtn.setAttribute('aria-label', 'End the session');
-        approvalEndBtn.innerHTML = '<span class="codicon codicon-debug-stop"></span> End';
-
-        // Divider between End and Yes/No
-        var buttonDivider = document.createElement('span');
-        buttonDivider.className = 'approval-divider';
-
         // No/Reject button (secondary action - text only)
         approvalNoBtn = document.createElement('button');
         approvalNoBtn.className = 'approval-btn approval-reject-btn';
@@ -298,9 +288,7 @@
         approvalContinueBtn.setAttribute('aria-label', 'Yes and continue');
         approvalContinueBtn.textContent = 'Yes';
 
-        // Assemble buttons: [End] | [No] [Yes]
-        buttonsContainer.appendChild(approvalEndBtn);
-        buttonsContainer.appendChild(buttonDivider);
+        // Assemble buttons: [No] [Yes]
         buttonsContainer.appendChild(approvalNoBtn);
         buttonsContainer.appendChild(approvalContinueBtn);
 
@@ -694,7 +682,6 @@
         // Approval modal button events
         if (approvalContinueBtn) approvalContinueBtn.addEventListener('click', handleApprovalContinue);
         if (approvalNoBtn) approvalNoBtn.addEventListener('click', handleApprovalNo);
-        if (approvalEndBtn) approvalEndBtn.addEventListener('click', handleApprovalEnd);
 
         // End session button (always visible)
         if (endSessionBtn) endSessionBtn.addEventListener('click', handleEndSessionClick);
@@ -2190,29 +2177,6 @@
             updateSendButtonState();
             saveWebviewState();
         }
-    }
-
-    /**
-     * Handle "End" button click in approval modal
-     * Sends "end" to stop the session/conversation
-     */
-    function handleApprovalEnd() {
-        if (!pendingToolCall) return;
-
-        // Hide approval modal
-        hideApprovalModal();
-
-        // Send "end" response to terminate the session
-        vscode.postMessage({ type: 'submit', value: 'end', attachments: [] });
-        if (chatInput) {
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            updateInputHighlighter();
-        }
-        currentAttachments = [];
-        updateChipsDisplay();
-        updateSendButtonState();
-        saveWebviewState();
     }
 
     /**

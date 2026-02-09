@@ -1925,32 +1925,6 @@ button#send-btn:disabled {
     color: var(--vscode-errorForeground);
 }
 
-/* End button - secondary style with warning color and icon */
-.approval-end-btn {
-    background: transparent;
-    color: var(--vscode-foreground);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.approval-end-btn .codicon {
-    font-size: 12px;
-}
-
-.approval-end-btn:hover {
-    background-color: var(--vscode-toolbar-hoverBackground);
-    color: var(--vscode-editorWarning-foreground, #cca700);
-}
-
-/* Divider between End and Yes/No buttons */
-.approval-divider {
-    width: 1px;
-    height: 16px;
-    background-color: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
-    margin: 0 4px;
-}
-
 /* Accept button - primary style */
 .approval-accept-btn {
     background-color: var(--vscode-button-background);
@@ -1962,8 +1936,7 @@ button#send-btn:disabled {
 }
 
 .approval-accept-btn:active,
-.approval-reject-btn:active,
-.approval-end-btn:active {
+.approval-reject-btn:active {
     transform: scale(0.98);
 }
 

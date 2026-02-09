@@ -1016,6 +1016,29 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
      * Used when AI calls ask_user with questions array (multi-question mode)
      */
     public async waitForMultiQuestionResponse(questions: Question[]): Promise<UserResponseResult> {
+        // Input validation - prevent hangs from malformed input
+        if (!questions || !Array.isArray(questions)) {
+            console.error('[TaskSync] waitForMultiQuestionResponse: invalid questions array');
+            return { value: '{"error": "Invalid questions input"}', queue: false, attachments: [] };
+        }
+
+        // Limit questions to prevent UI overload (max 10, recommended 4)
+        const safeQuestions = questions.slice(0, 10).map(q => ({
+            header: String(q.header || 'Question').substring(0, 50),
+            question: String(q.question || '').substring(0, 2000),
+            options: Array.isArray(q.options) ? q.options.slice(0, 20).map(o => ({
+                label: String(o.label || '').substring(0, 200),
+                description: o.description ? String(o.description).substring(0, 500) : undefined,
+                recommended: Boolean(o.recommended)
+            })) : undefined,
+            multiSelect: Boolean(q.multiSelect),
+            allowFreeformInput: Boolean(q.allowFreeformInput)
+        }));
+
+        if (safeQuestions.length === 0) {
+            return { value: '{"error": "No valid questions provided"}', queue: false, attachments: [] };
+        }
+
         // If view is not available, open the sidebar first
         if (!this._view) {
             await vscode.commands.executeCommand('taskSyncView.focus');
@@ -1051,7 +1074,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._view.show(this._autoFocusPanelEnabled);
 
         // Build a combined prompt for display in history
-        const combinedPrompt = questions.map((q, i) => `${i + 1}. [${q.header}] ${q.question}`).join('\n');
+        const combinedPrompt = safeQuestions.map((q, i) => `${i + 1}. [${q.header}] ${q.question}`).join('\n');
 
         // Add pending entry to current session
         const pendingEntry: ToolCallEntry = {
@@ -1080,7 +1103,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         const multiQuestionMessage = {
             type: 'multiQuestionPending' as const,
             requestId,
-            questions
+            questions: safeQuestions
         };
 
         // Send to webview
@@ -2245,19 +2268,21 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             return;
         }
 
-        // Format answers as structured JSON for the AI
-        const formattedAnswers = answers.map(a => {
+        // Validate and sanitize answers to prevent issues
+        const safeAnswers = (Array.isArray(answers) ? answers : []).map(a => {
             const answer: Record<string, unknown> = {
-                question: a.header,
-                selectedOptions: a.selected
+                question: String(a?.header || 'Unknown').substring(0, 100),
+                selectedOptions: Array.isArray(a?.selected) 
+                    ? a.selected.map(s => String(s).substring(0, 500)).slice(0, 20)
+                    : []
             };
-            if (a.freeformText) {
-                answer.freeformText = a.freeformText;
+            if (a?.freeformText && typeof a.freeformText === 'string') {
+                answer.freeformText = a.freeformText.substring(0, 5000);
             }
             return answer;
         });
 
-        const responseJson = JSON.stringify({ answers: formattedAnswers }, null, 2);
+        const responseJson = JSON.stringify({ answers: safeAnswers }, null, 2);
 
         // Update the pending entry
         const pendingEntry = this._currentSessionCallsMap.get(requestId);

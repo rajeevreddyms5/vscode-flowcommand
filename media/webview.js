@@ -2743,20 +2743,39 @@
     var activeMultiQuestion = null;
 
     function showMultiQuestionModal(requestId, questions) {
+        // Input validation - prevent hangs from malformed data
+        if (!requestId || !questions || !Array.isArray(questions) || questions.length === 0) {
+            console.error('[TaskSync] showMultiQuestionModal: invalid input', requestId, questions);
+            // Send empty response to unblock the AI
+            vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId || 'invalid', answers: [] });
+            return;
+        }
+
         // Close existing if any
         if (activeMultiQuestion) {
             closeMultiQuestionModal(activeMultiQuestion.requestId);
         }
 
+        // Sanitize and limit questions to prevent UI issues
+        var safeQuestions = questions.slice(0, 10).map(function(q) {
+            return {
+                header: String(q.header || 'Question').substring(0, 50),
+                question: String(q.question || '').substring(0, 2000),
+                options: Array.isArray(q.options) ? q.options.slice(0, 20) : null,
+                multiSelect: Boolean(q.multiSelect),
+                allowFreeformInput: Boolean(q.allowFreeformInput)
+            };
+        });
+
         // Track answers for each question
-        var answers = questions.map(function (q) {
+        var answers = safeQuestions.map(function (q) {
             return { header: q.header, selected: [], freeformText: '' };
         });
 
         var overlay = document.createElement('div');
         overlay.className = 'multi-question-overlay';
         
-        var questionsHtml = questions.map(function (q, qIndex) {
+        var questionsHtml = safeQuestions.map(function (q, qIndex) {
             var optionsHtml = '';
             
             if (q.options && q.options.length > 0) {
@@ -2812,16 +2831,18 @@
             '</div>';
 
         document.body.appendChild(overlay);
-        activeMultiQuestion = { requestId: requestId, overlay: overlay, answers: answers, questions: questions };
+        activeMultiQuestion = { requestId: requestId, overlay: overlay, answers: answers, questions: safeQuestions };
 
         // Bind option change events
         overlay.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function (input) {
             input.addEventListener('change', function () {
                 var qIndex = parseInt(input.getAttribute('data-qindex'), 10);
+                if (isNaN(qIndex) || qIndex < 0 || qIndex >= safeQuestions.length) return;
+                
                 var isOther = input.getAttribute('data-other') === 'true';
                 var otherInput = document.getElementById('mq-other-' + qIndex);
                 
-                if (questions[qIndex].multiSelect) {
+                if (safeQuestions[qIndex].multiSelect) {
                     // Checkbox: toggle in array
                     if (input.checked) {
                         if (isOther) {
@@ -2860,7 +2881,8 @@
         overlay.querySelectorAll('.mq-other-input').forEach(function (input) {
             input.addEventListener('input', function () {
                 var qIndex = parseInt(input.id.replace('mq-other-', ''), 10);
-                var otherValue = input.value.trim();
+                if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
+                var otherValue = input.value.trim().substring(0, 500); // Limit length
                 // Remove any previous "Other: ..." value
                 answers[qIndex].selected = answers[qIndex].selected.filter(function(v) { return !v.startsWith('Other: '); });
                 if (otherValue) {
@@ -2873,7 +2895,8 @@
         overlay.querySelectorAll('.mq-freeform').forEach(function (textarea) {
             textarea.addEventListener('input', function () {
                 var qIndex = parseInt(textarea.getAttribute('data-qindex'), 10);
-                answers[qIndex].freeformText = textarea.value;
+                if (isNaN(qIndex) || qIndex < 0 || qIndex >= answers.length) return;
+                answers[qIndex].freeformText = textarea.value.substring(0, 5000); // Limit length
             });
         });
 
@@ -2892,7 +2915,7 @@
         
         function handleCancel() {
             // Send empty answers on cancel
-            var emptyAnswers = questions.map(function (q) {
+            var emptyAnswers = safeQuestions.map(function (q) {
                 return { header: q.header, selected: [], freeformText: '' };
             });
             vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId, answers: emptyAnswers });

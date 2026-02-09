@@ -1547,8 +1547,12 @@
     function handleToolCallCancelled(id) {
         console.log('[FlowCommand Webview] toolCallCancelled:', id);
 
-        // Only act if this matches the current pending tool call
-        if (pendingToolCall && pendingToolCall.id === id) {
+        // Clear pending tool call - if id matches or is a stale cleanup signal
+        if (pendingToolCall && (pendingToolCall.id === id || id === '__stale__')) {
+            pendingToolCall = null;
+        }
+        // Also clear if no specific pending tool call (full state reset)
+        if (id === '__stale__') {
             pendingToolCall = null;
         }
 
@@ -2970,14 +2974,12 @@
 
         promptsModalList.innerHTML = reusablePrompts.map(function (p, index) {
             var promptPreview = p.prompt.length > 60 ? p.prompt.substring(0, 60) + '...' : p.prompt;
-            var templateBadge = p.isTemplate ? '<span class="template-badge" title="Auto-appended to all prompts"><span class="codicon codicon-pinned"></span></span>' : '';
             var templateBtnTitle = p.isTemplate ? 'Unset Template' : 'Set as Template';
             var templateBtnClass = p.isTemplate ? 'pm-template-btn active' : 'pm-template-btn';
             return '<div class="prompt-card' + (p.isTemplate ? ' is-template' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                 '<div class="prompt-card-header">' +
                 '<span class="prompt-card-name">/' + escapeHtml(p.name) + '</span>' +
                 '<span class="prompt-card-preview">' + escapeHtml(promptPreview) + '</span>' +
-                templateBadge +
                 '<div class="prompt-card-actions-inline">' +
                 '<button class="prompt-card-btn-icon ' + templateBtnClass + '" data-id="' + escapeHtml(p.id) + '" title="' + templateBtnTitle + '"><span class="codicon codicon-pinned"></span></button>' +
                 '<button class="prompt-card-btn-icon pm-edit-btn" data-id="' + escapeHtml(p.id) + '" title="Edit"><span class="codicon codicon-edit"></span></button>' +

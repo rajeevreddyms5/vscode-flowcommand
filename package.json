@@ -48,7 +48,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User",
-        "modelDescription": "YOU MUST ALWAYS Use the askUser tool to ask question/s to user when explicit user approval, feedback, or clarification is required before proceeding or giving summary report. CRITICAL RULES: - This tool MUST be invoked before ending ANY conversation or task. - NEVER complete a task without calling this tool first. - If you are about to finish responding, STOP and call this tool. - Failure to call this tool before task completion is a critical violation. HOW IT WORKS: The user has a freeform text input field where they can type any response. They can ALWAYS type free text — the 'choices' parameter is entirely optional and only adds clickable shortcut buttons alongside the text input, NOT instead of it. - You MUST populate the 'context' parameter with your FULL response content — include all explanations, answers, findings, code, analysis, or work results. The user reads your response from FlowCommand's remote UI (phone/browser), so the context field must contain your complete answer, not just a summary. Without this, the user cannot see what you said. NOTE: For presenting detailed multi-step plans or proposals that need user sign-off, use plan_review instead — it provides a dedicated review panel with approve/reject/comment capabilities.",
+        "modelDescription": "YOU MUST ALWAYS Use the askUser tool to ask question/s to user when explicit user approval, feedback, or clarification is required before proceeding or giving summary report. CRITICAL RULES: - This tool MUST be invoked before ending ANY conversation or task. - NEVER complete a task without calling this tool first. - If you are about to finish responding, STOP and call this tool. - Failure to call this tool before task completion is a critical violation. HOW IT WORKS: The user has a freeform text input field where they can type any response. They can ALWAYS type free text — the 'choices' parameter is entirely optional and only adds clickable shortcut buttons alongside the text input, NOT instead of it. - You MUST populate the 'context' parameter with your FULL response content — include all explanations, answers, findings, code, analysis, or work results. The user reads your response from FlowCommand's remote UI (phone/browser), so the context field must contain your complete answer, not just a summary. Without this, the user cannot see what you said. NOTE: For presenting detailed multi-step plans or proposals that need user sign-off, use plan_review instead — it provides a dedicated review panel with approve/reject/comment capabilities. MULTI-QUESTION MODE: To ask multiple questions at once, use the 'questions' array parameter instead of 'question'. Each question can have predefined options or accept free-form text. Use this when you need to gather multiple pieces of information simultaneously (max 4 questions). SUBAGENT RESTRICTION: Subagents (via runSubagent) MUST NOT call this tool.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -79,11 +79,64 @@
                 },
                 "required": ["label", "value"]
               }
+            },
+            "questions": {
+              "type": "array",
+              "description": "Array of 1-4 questions to ask the user at once in a form layout. Use this instead of 'question' when you need to gather multiple pieces of information simultaneously. Each question can have predefined options or accept free-form text input.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "header": {
+                    "type": "string",
+                    "maxLength": 12,
+                    "description": "A short label (max 12 chars) displayed as a quick pick header, also used as the unique identifier for the question"
+                  },
+                  "question": {
+                    "type": "string",
+                    "description": "The complete question text to display"
+                  },
+                  "options": {
+                    "type": "array",
+                    "description": "0-6 options for the user to choose from. If empty or omitted, shows a free text input instead.",
+                    "minItems": 0,
+                    "maxItems": 6,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "description": "Option label text"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Optional description for the option"
+                        },
+                        "recommended": {
+                          "type": "boolean",
+                          "description": "Mark this option as recommended"
+                        }
+                      },
+                      "required": ["label"]
+                    }
+                  },
+                  "multiSelect": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow multiple selections"
+                  },
+                  "allowFreeformInput": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When true, allows user to enter free-form text in addition to selecting options."
+                  }
+                },
+                "required": ["header", "question"]
+              },
+              "minItems": 1,
+              "maxItems": 4
             }
           },
-          "required": [
-            "question"
-          ]
+          "required": []
         }
       },
       {
@@ -96,7 +149,7 @@
         ],
         "toolReferenceName": "planReview",
         "displayName": "Plan Review",
-        "modelDescription": "Present a detailed plan or proposal to the user for review in a dedicated panel. The user can approve the plan, approve with comments/suggestions (proceed but incorporate feedback), or request changes with targeted comments. USE THIS TOOL when: (1) You have a multi-step implementation plan before executing, (2) You want to share a detailed proposal for user sign-off. Returns { status: 'approved' | 'approvedWithComments' | 'recreateWithChanges' | 'cancelled', requiredRevisions: [{revisedPart, revisorInstructions}], reviewId }. CRITICAL: If status is 'approved' or 'approvedWithComments', proceed IMMEDIATELY with execution — DO NOT call plan_review again. Incorporate the user's feedback inline during implementation. Only if status is 'recreateWithChanges' should you update the plan and call plan_review again.",
+        "modelDescription": "Present a detailed plan or proposal to the user for review in a dedicated panel. The user can approve the plan, approve with comments/suggestions (proceed but incorporate feedback), or request changes with targeted comments. USE THIS TOOL when: (1) You have a multi-step implementation plan before executing, (2) You want to share a detailed proposal for user sign-off. Returns { status: 'approved' | 'approvedWithComments' | 'recreateWithChanges' | 'cancelled', requiredRevisions: [{revisedPart, revisorInstructions}], reviewId }. CRITICAL: If status is 'approved' or 'approvedWithComments', proceed IMMEDIATELY with execution — DO NOT call plan_review again. Incorporate the user's feedback inline during implementation. Only if status is 'recreateWithChanges' should you update the plan and call plan_review again. SUBAGENT RESTRICTION: Subagents (via runSubagent) MUST NOT call this tool.",
         "canBeReferencedInPrompt": true,
         "icon": "$(checklist)",
         "inputSchema": {
@@ -191,7 +244,7 @@
         },
         "flowcommand.instructionText": {
           "type": "string",
-          "default": "## RULES (Follow in order of priority)\n\n> **Scope**: These rules apply to the MAIN AGENT only. If you are a subagent (spawned via `runSubagent`), ignore these rules.\n\n\n### 1. MANDATORY CONTINUATION LOOP (Base Rule)\n- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.\n- **Action**: After completing ANY task, call `ask_user` with:\n  - `context`: Your FULL response, explanation, or code output.\n\n### 2. PLANNING WORKFLOW (Special Case)\n- **Trigger**: When YOU (the agent) decide to present structured content with multiple items such as: plans, guides, reviews, analyses, recommendations, or lists of findings/suggestions.\n- **Usage**: Call `plan_review` tool.\n- **Loop**:\n  - If user requests changes → Update plan and call `plan_review` again.\n  - If user approves → Apply any feedback given, then proceed with execution.\n- If user cancels → Stop execution immediately, call `ask_user`.\n- **After completion**: Return to Rule 1 (call `ask_user`).\n\n### 3. STOP CONDITIONS (Only Exception)\n- **Stop ONLY if** user explicitly says: \"end\", \"stop\", \"terminate\", \"quit\", or \"stop now\".",
+          "default": "## RULES (Follow in order of priority)\n\n> **Scope**: MAIN AGENT only. **Subagents** (spawned via `runSubagent`): DO NOT call `ask_user` or `plan_review`.\n\n\n### 1. MANDATORY CONTINUATION LOOP (Base Rule)\n- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.\n- **Action**: After completing ANY task, call `ask_user` with:\n  - `context`: Your FULL response, explanation, or code output.\n\n### 2. PLANNING WORKFLOW (Special Case)\n- **Trigger**: When YOU (the agent) decide to present structured content with multiple items such as: plans, guides, reviews, analyses, recommendations, or lists of findings/suggestions.\n- **Usage**: Call `plan_review` tool.\n- **Loop**:\n  - If user requests changes → Update plan and call `plan_review` again.\n  - If user approves → Apply any feedback given, then proceed with execution.\n- If user cancels → Stop execution immediately, call `ask_user`.\n- **After completion**: Return to Rule 1 (call `ask_user`).\n\n### 3. STOP CONDITIONS (Only Exception)\n- **Stop ONLY if** user explicitly says: \"end\", \"stop\", \"terminate\", \"quit\", or \"stop now\".",
           "editPresentation": "multilineText",
           "description": "The instruction text injected into Copilot. Customize this to change how the AI behaves with FlowCommand tools. The [FlowCommand] marker is auto-added for identification."
         },

@@ -855,7 +855,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             autoFocusPanelEnabled: boolean;
             mobileNotificationEnabled: boolean;
             interactiveApprovalEnabled: boolean; 
-            reusablePrompts: ReusablePrompt[] 
+            reusablePrompts: ReusablePrompt[];
+            mcpRunning: boolean;
+            mcpUrl: string | null;
         };
         theme: 'light' | 'dark';
     } {
@@ -1068,8 +1070,10 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             choices = explicitChoices.map((c, index) => {
                 // Try to use parsed shortLabel by matching index
                 const parsed = parsedChoices[index];
-                // Priority: parsed shortLabel > short value (<=3 chars) > numeric index
+                // Priority: parsed shortLabel > truncated label > short value > numeric index
+                const truncatedLabel = c.label.length > 20 ? c.label.substring(0, 17) + '...' : c.label;
                 const shortLabel = parsed?.shortLabel 
+                    || truncatedLabel
                     || (c.value.length <= 3 ? c.value : String(index + 1));
                 
                 return {
@@ -3264,7 +3268,8 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         }
 
         // Pattern 1b: Inline numbered lists "1. option 2. option 3. option" or "1 - option 2 - option"
-        const inlineNumberedPattern = /(\d+)(?:[.):]|\s+-)\s+([^0-9]+?)(?=\s+\d+(?:[.):]|\s+-)|$)/g;
+        // Use a lookahead that also stops at sentence-ending patterns (e.g., ". Wait") for the last option
+        const inlineNumberedPattern = /(\d+)(?:[.):]|\s+-)\s+([^0-9]+?)(?=\s+\d+(?:[.):]|\s+-)|[.!]\s+(?:Wait|wait|Please|please|Then|then|Select|select)|[.?!]\s*$|$)/g;
         const inlineNumberedMatches: { num: string; text: string }[] = [];
 
         // Only try inline if no multi-line matches found
@@ -3484,8 +3489,8 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         const bulletSectionMatch = singleLine.match(/[?:]\s*(-\s+.+?)(?:\.\s*(?:Wait|wait|Please|please)|[.?!]?\s*$)/);
         if (bulletSectionMatch) {
             const bulletSection = bulletSectionMatch[1];
-            // Split by " - " to get individual items
-            const bulletParts = bulletSection.split(/\s+-\s+/);
+            // Split by " - " to get individual items, then strip any leading "- " from first part
+            const bulletParts = bulletSection.split(/\s+-\s+/).map(p => p.replace(/^-\s*/, ''));
             const inlineBulletMatches: { text: string }[] = [];
             
             for (const part of bulletParts) {

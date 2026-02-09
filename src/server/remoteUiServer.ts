@@ -1519,6 +1519,18 @@ self.addEventListener('fetch', event => {
             border-bottom: 1px solid #3c3c3c;
         }
         
+        .remote-header-left {
+            flex-shrink: 1;
+            min-width: 0;
+        }
+        
+        .remote-header-actions {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 2px;
+        }
+        
         .remote-header-title {
             font-size: 16px;
             font-weight: 600;
@@ -2770,20 +2782,22 @@ self.addEventListener('fetch', event => {
         // requestNotificationPermission();
         
         // Visual notification fallback (for browsers that don't support Web Notifications)
-        function showVisualNotification(prompt) {
-            const preview = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
+        function showVisualNotification(prompt, color) {
+            var bgColor = color || '#0078d4';
             // Create toast notification
             let toast = document.getElementById('notification-toast');
             if (!toast) {
                 toast = document.createElement('div');
                 toast.id = 'notification-toast';
-                toast.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#0078d4;color:white;padding:12px 20px;border-radius:8px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.3);max-width:90%;font-size:14px;display:none;animation:slideIn 0.3s ease;';
                 document.body.appendChild(toast);
             }
-            toast.textContent = preview;
-            toast.style.display = 'block';
-            // Auto-hide after 5 seconds
-            setTimeout(function() { toast.style.display = 'none'; }, 5000);
+            toast.style.cssText = 'position:fixed;top:0;left:0;right:0;background:' + bgColor + ';color:white;padding:12px 16px;z-index:10000;box-shadow:0 2px 12px rgba(0,0,0,0.3);font-size:14px;line-height:1.5;display:block;animation:slideIn 0.3s ease;word-wrap:break-word;white-space:pre-wrap;cursor:pointer;';
+            toast.textContent = prompt;
+            // Auto-hide after 8 seconds (longer for instruction text)
+            clearTimeout(toast._hideTimer);
+            toast._hideTimer = setTimeout(function() { toast.style.display = 'none'; }, 8000);
+            // Tap to dismiss
+            toast.onclick = function() { toast.style.display = 'none'; clearTimeout(toast._hideTimer); };
         }
         
         function showMobileNotification(prompt) {
@@ -2965,6 +2979,12 @@ self.addEventListener('fetch', event => {
                 console.log('[FlowCommand] Applying initial state');
                 lastSuccessTime = Date.now();  // Track successful message
 
+                // Show green success toast if this was a manual refresh
+                if (window.__pendingRefresh) {
+                    window.__pendingRefresh = false;
+                    showVisualNotification('✓ Refreshed', '#2ea043');
+                }
+
                 // Apply theme from VS Code
                 if (state.theme) {
                     applyTheme(state.theme);
@@ -2997,6 +3017,9 @@ self.addEventListener('fetch', event => {
                             isApprovalQuestion: state.pendingRequest.isApprovalQuestion,
                             choices: state.pendingRequest.choices
                         });
+                    } else {
+                        // No pending request - clear any stale pending UI
+                        window.dispatchVSCodeMessage({ type: 'toolCallCancelled', id: '__stale__' });
                     }
                 }
             }
@@ -3539,6 +3562,7 @@ self.addEventListener('fetch', event => {
         document.getElementById('remote-refresh-btn')?.addEventListener('click', () => {
             if (socket && isConnected) {
                 socket.emit('getState');
+                window.__pendingRefresh = true;
                 showVisualNotification('Refreshing state...');
             } else {
                 showVisualNotification('Not connected. Please reconnect.');

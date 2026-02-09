@@ -121,7 +121,7 @@ Create a 3-step plan for setting up a Node.js project and present it using plan_
 
 - [x] Trigger autocomplete: Type `#` in input → Dropdown appears
 - [x] Search files: Type "pack" → Files matching shown (e.g., package.json)
-- [x] Select file: Click a file → File chip appears in input (FIXME: In remote browser, file selector text overlays background text, confusing if it's from picker or history; FIXME: Remote file picker triggers IDE file picker too, should close automatically when remote picker closes)
+- [x] Select file: Click a file → File chip appears in input (FIXME: In remote browser, file picker triggers only when deleting the words already added)
 
 ### 6.2 Folder Attachment
 
@@ -313,7 +313,7 @@ Ask me a simple question using ask_user. Do not proceed until I respond.
 
 ### 16.1 Numbered Options (1. 2. 3.)
 
-- [x] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear
+- [ ] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear (FIXME: options shown are 1, Vee and 3)
 
 **Copilot Test Prompt:**
 ```
@@ -331,7 +331,7 @@ Ask: Testing approach? A. Unit tests B. Integration tests C. Both. Wait for answ
 
 ### 16.3 Bullet Options (- item)
 
-- [ ] Trigger: Use AI prompt below → Buttons show full text: `PostgreSQL`, `MongoDB`, `SQLite` (FIXME: Buttons not appearing for bullet options)
+- [ ] Trigger: Use AI prompt below → Buttons show full text: `PostgreSQL`, `MongoDB`, `SQLite` (FIXME: Buttons appeared but first opition is "- PostgreSQL" instead of "PostgreSQL")
 
 **Copilot Test Prompt:**
 ```
@@ -349,7 +349,7 @@ Ask: Color scheme? 1️⃣ Dark 2️⃣ Light 3️⃣ System. Wait for choice.
 
 ### 16.5 Long Lists (10+ items)
 
-- [ ] Trigger: Use AI prompt with 10+ options → NO buttons appear (only text input) (FIXME: Buttons appeared for some items instead of none)
+- [x] Trigger: Use AI prompt with 10+ options → NO buttons appear (only text input)
 
 **Copilot Test Prompt:**
 ```
@@ -399,7 +399,7 @@ Create a simple 3-step plan and call plan_review for approval.
 ### 18.2 Browser Push (Remote)
 
 - [ ] Permission: Open remote, click "Allow" on notification prompt → Permission granted (FIXME: Related to 17.3, notifications blocked on iOS Safari)
-- [ ] Trigger: Switch tabs, trigger ask_user → Browser notification appears with question text (FIXME: Related to 17.3)
+- [x] Trigger: Switch tabs, trigger ask_user → Browser notification appears with question text 
 - [ ] Click: Click notification → Focuses FlowCommand tab (FIXME: In desktop Chrome, notifications are blocked with "Notifications are blocked. Please enable them in your browser settings.")
 
 ### 18.3 Sound Toggle
@@ -437,7 +437,7 @@ After all tests, verify these categories pass:
 - [x] **Themes**: Light/dark themes sync across VS Code and remote
 - [x] **Pause/Play**: Queue pausing prevents auto-response
 - [x] **Interactive Approval**: Number/letter/bullet options parsed correctly
-- [ ] **Notifications**: Sound and push notifications work (FIXME: Browser notifications blocked on iOS Safari)
+- [ ] **Notifications**: Sound and push notifications work (FIXME: Browser notifications blocked on iOS Safari and desktop chrome as well)
 - [x] **Plan Review Sync**: VS Code and remote dismiss in sync
 
 ---

@@ -3278,7 +3278,7 @@ button#send-btn:disabled {
 }
 
 .prompt-card.expanded .prompt-card-preview {
-    display: none;
+    visibility: hidden;
 }
 
 .prompt-card-actions-inline {

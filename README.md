@@ -18,8 +18,10 @@ FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, r
 | **Mobile Notifications** | Push notifications when AI needs input |
 | **Interactive Approval** | Yes/No/Option buttons parsed from AI questions |
 | **Queue Pause/Play** | Temporarily pause auto-responses |
-| **Reusable Prompts** | /slash commands for frequent prompts |
-| **File & Image Support** | `#` references and image paste/drag |
+| **Reusable Prompts** | /slash commands and prompt templates for frequent prompts |
+| **Auto-Inject Instructions** | One-click AI instruction setup via copilot-instructions.md |
+| **File References** | `#` mentions to attach workspace files and folders |
+| **Theme Support** | Light/dark themes synced across VS Code and remote |
 | **MCP Server** | Integration with Kiro, Cursor, and other IDEs |
 
 ---
@@ -47,9 +49,6 @@ Reference files and folders directly in your responses using `#` mentions:
 - Type `#` to trigger autocomplete
 - Search and select files or folders from your workspace
 - Attachments are included with your response for context
-
-### Image Support
-Paste or drag-and-drop images directly into the chat input. Images are automatically saved and attached to your response.
 
 ### Tool Call History
 - View current session tool calls in the main panel

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { TaskSyncWebviewProvider } from './webview/webviewProvider';
+import { FlowCommandWebviewProvider } from './webview/webviewProvider';
 import { registerTools } from './tools';
 import { McpServerManager } from './mcp/mcpServer';
 import { ContextManager } from './context';
@@ -10,7 +10,7 @@ import { RemoteUiServer, RemoteMessage } from './server/remoteUiServer';
 import { registerPlanReviewTool } from './planReview';
 
 let mcpServer: McpServerManager | undefined;
-let webviewProvider: TaskSyncWebviewProvider | undefined;
+let webviewProvider: FlowCommandWebviewProvider | undefined;
 let contextManager: ContextManager | undefined;
 let remoteServer: RemoteUiServer | undefined;
 let remoteStatusBarItem: vscode.StatusBarItem | undefined;
@@ -40,8 +40,8 @@ async function hasExternalMcpClientsAsync(): Promise<boolean> {
         try {
             const content = await fs.promises.readFile(configPath, 'utf8');
             const config = JSON.parse(content);
-            // Check if tasksync-chat is registered
-            if (config.mcpServers?.['tasksync-chat']) {
+            // Check if flowcommand-chat is registered
+            if (config.mcpServers?.['flowcommand-chat']) {
                 _hasExternalMcpClientsResult = true;
                 return true;
             }
@@ -61,12 +61,12 @@ export function activate(context: vscode.ExtensionContext) {
     contextManager = new ContextManager();
     context.subscriptions.push({ dispose: () => contextManager?.dispose() });
 
-    const provider = new TaskSyncWebviewProvider(context.extensionUri, context, contextManager);
+    const provider = new FlowCommandWebviewProvider(context.extensionUri, context, contextManager);
     webviewProvider = provider;
 
     // Register the provider and add it to disposables for proper cleanup
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(TaskSyncWebviewProvider.viewType, provider),
+        vscode.window.registerWebviewViewProvider(FlowCommandWebviewProvider.viewType, provider),
         provider // Provider implements Disposable for cleanup
     );
 
@@ -83,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Listen for settings changes to toggle instruction injection
     // User explicitly changed settings - force inject
     const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('tasksync.instructionInjection') || e.affectsConfiguration('tasksync.instructionText')) {
+        if (e.affectsConfiguration('flowcommand.instructionInjection') || e.affectsConfiguration('flowcommand.instructionText')) {
             handleInstructionInjection(true); // Force inject when user changes settings
         }
     });
@@ -94,7 +94,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Check if MCP should auto-start based on settings and external client configs
     // Deferred to avoid blocking activation with file I/O
-    const config = vscode.workspace.getConfiguration('tasksync');
+    const config = vscode.workspace.getConfiguration('flowcommand');
     const mcpEnabled = config.get<boolean>('mcpEnabled', false);
     const autoStartIfClients = config.get<boolean>('mcpAutoStartIfClients', true);
 
@@ -112,29 +112,29 @@ export function activate(context: vscode.ExtensionContext) {
                 mcpServer.start();
             }
         }).catch(err => {
-            console.error('[TaskSync] Failed to check external MCP clients:', err);
+            console.error('[FlowCommand] Failed to check external MCP clients:', err);
         });
     }
 
     // Start MCP server command
-    const startMcpCmd = vscode.commands.registerCommand('tasksync.startMcp', async () => {
+    const startMcpCmd = vscode.commands.registerCommand('flowcommand.startMcp', async () => {
         if (mcpServer && !mcpServer.isRunning()) {
             await mcpServer.start();
-            vscode.window.showInformationMessage('TaskSync MCP Server started');
+            vscode.window.showInformationMessage('FlowCommand MCP Server started');
         } else if (mcpServer?.isRunning()) {
-            vscode.window.showInformationMessage('TaskSync MCP Server is already running');
+            vscode.window.showInformationMessage('FlowCommand MCP Server is already running');
         }
     });
 
     // Restart MCP server command
-    const restartMcpCmd = vscode.commands.registerCommand('tasksync.restartMcp', async () => {
+    const restartMcpCmd = vscode.commands.registerCommand('flowcommand.restartMcp', async () => {
         if (mcpServer) {
             await mcpServer.restart();
         }
     });
 
     // Show MCP configuration command
-    const showMcpConfigCmd = vscode.commands.registerCommand('tasksync.showMcpConfig', async () => {
+    const showMcpConfigCmd = vscode.commands.registerCommand('flowcommand.showMcpConfig', async () => {
         const config = (mcpServer as any).getMcpConfig?.();
         if (!config) {
             vscode.window.showErrorMessage('MCP server not running');
@@ -168,12 +168,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Open history modal command (triggered from view title bar)
-    const openHistoryCmd = vscode.commands.registerCommand('tasksync.openHistory', () => {
+    const openHistoryCmd = vscode.commands.registerCommand('flowcommand.openHistory', () => {
         provider.openHistoryModal();
     });
 
     // Clear current session command (triggered from view title bar)
-    const clearSessionCmd = vscode.commands.registerCommand('tasksync.clearCurrentSession', async () => {
+    const clearSessionCmd = vscode.commands.registerCommand('flowcommand.clearCurrentSession', async () => {
         const result = await vscode.window.showWarningMessage(
             'Clear all tool calls from current session?',
             { modal: true },
@@ -185,12 +185,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Open settings modal command (triggered from view title bar)
-    const openSettingsCmd = vscode.commands.registerCommand('tasksync.openSettings', () => {
+    const openSettingsCmd = vscode.commands.registerCommand('flowcommand.openSettings', () => {
         provider.openSettingsModal();
     });
 
     // Open prompts modal command (triggered from view title bar)
-    const openPromptsCmd = vscode.commands.registerCommand('tasksync.openPrompts', () => {
+    const openPromptsCmd = vscode.commands.registerCommand('flowcommand.openPrompts', () => {
         provider.openPromptsModal();
     });
 
@@ -241,7 +241,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create status bar item for remote server
     remoteStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    remoteStatusBarItem.command = 'tasksync.showRemoteUrl';
+    remoteStatusBarItem.command = 'flowcommand.showRemoteUrl';
     context.subscriptions.push(remoteStatusBarItem);
 
     // Function to update status bar based on server state
@@ -251,9 +251,9 @@ export function activate(context: vscode.ExtensionContext) {
         if (remoteServer?.isRunning()) {
             const info = remoteServer.getConnectionInfo();
             const networkUrl = info.urls.find(u => !u.includes('localhost')) || info.urls[0];
-            remoteStatusBarItem.text = '$(broadcast) TaskSync';
+            remoteStatusBarItem.text = '$(broadcast) FlowCommand';
             remoteStatusBarItem.tooltip = new vscode.MarkdownString(
-                `**TaskSync Remote Server**\n\n` +
+                `**FlowCommand Remote Server**\n\n` +
                 `**URL:** \`${networkUrl}\`\n\n` +
                 `**PIN:** \`${info.pin}\`\n\n` +
                 `_Click to copy_`
@@ -266,28 +266,28 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Auto-start remote server if enabled
-    const remoteConfig = vscode.workspace.getConfiguration('tasksync');
+    const remoteConfig = vscode.workspace.getConfiguration('flowcommand');
     const remoteEnabled = remoteConfig.get<boolean>('remoteEnabled', false);
     if (remoteEnabled) {
         remoteServer.start().then(() => {
             const info = remoteServer!.getConnectionInfo();
             vscode.window.showInformationMessage(
-                `TaskSync Remote started: ${info.urls[1] || info.urls[0]} | PIN: ${info.pin}`
+                `FlowCommand Remote started: ${info.urls[1] || info.urls[0]} | PIN: ${info.pin}`
             );
             updateRemoteStatusBar();
         }).catch(err => {
-            console.error('[TaskSync] Failed to start remote server:', err);
+            console.error('[FlowCommand] Failed to start remote server:', err);
         });
     }
 
     // Toggle remote server command (triggered from view title bar)
-    const toggleRemoteCmd = vscode.commands.registerCommand('tasksync.toggleRemoteServer', async () => {
+    const toggleRemoteCmd = vscode.commands.registerCommand('flowcommand.toggleRemoteServer', async () => {
         if (!remoteServer) return;
         
         if (remoteServer.isRunning()) {
             remoteServer.stop();
             updateRemoteStatusBar();
-            vscode.window.showInformationMessage('TaskSync Remote Server stopped');
+            vscode.window.showInformationMessage('FlowCommand Remote Server stopped');
         } else {
             try {
                 await remoteServer.start();
@@ -314,7 +314,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Start remote server command
-    const startRemoteCmd = vscode.commands.registerCommand('tasksync.startRemoteServer', async () => {
+    const startRemoteCmd = vscode.commands.registerCommand('flowcommand.startRemoteServer', async () => {
         if (!remoteServer) return;
         
         if (remoteServer.isRunning()) {
@@ -335,7 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Stop remote server command
-    const stopRemoteCmd = vscode.commands.registerCommand('tasksync.stopRemoteServer', () => {
+    const stopRemoteCmd = vscode.commands.registerCommand('flowcommand.stopRemoteServer', () => {
         if (!remoteServer) return;
         
         if (!remoteServer.isRunning()) {
@@ -349,7 +349,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Show remote URL command
-    const showRemoteUrlCmd = vscode.commands.registerCommand('tasksync.showRemoteUrl', async () => {
+    const showRemoteUrlCmd = vscode.commands.registerCommand('flowcommand.showRemoteUrl', async () => {
         if (!remoteServer || !remoteServer.isRunning()) {
             vscode.window.showWarningMessage('Remote server is not running. Start it first.');
             return;
@@ -380,12 +380,12 @@ export function activate(context: vscode.ExtensionContext) {
     );
 }
 
-const TASKSYNC_SECTION_START = '<!-- [TaskSync] START -->';
-const TASKSYNC_SECTION_END = '<!-- [TaskSync] END -->';
-const TASKSYNC_MARKER = '[TaskSync]';
+const FLOWCOMMAND_SECTION_START = '<!-- [FlowCommand] START -->';
+const FLOWCOMMAND_SECTION_END = '<!-- [FlowCommand] END -->';
+const FLOWCOMMAND_MARKER = '[FlowCommand]';
 
 // Storage keys for tracking injection state
-const INJECTION_STATE_KEY = 'tasksync.injectionState';
+const INJECTION_STATE_KEY = 'flowcommand.injectionState';
 
 interface InjectionState {
     method: string;
@@ -426,7 +426,7 @@ async function storeInjectionState(state: InjectionState | undefined): Promise<v
 }
 
 /**
- * Check if copilot-instructions.md has the correct TaskSync section
+ * Check if copilot-instructions.md has the correct FlowCommand section
  * Returns: 'correct' | 'missing' | 'modified' | 'corrupted' | 'no-file'
  */
 async function checkCopilotInstructionsState(expectedContent: string): Promise<'correct' | 'missing' | 'modified' | 'corrupted' | 'no-file'> {
@@ -439,10 +439,10 @@ async function checkCopilotInstructionsState(expectedContent: string): Promise<'
         const fileData = await vscode.workspace.fs.readFile(filePath);
         const content = Buffer.from(fileData).toString('utf-8');
 
-        const startIdx = content.indexOf(TASKSYNC_SECTION_START);
-        const endIdx = content.indexOf(TASKSYNC_SECTION_END);
+        const startIdx = content.indexOf(FLOWCOMMAND_SECTION_START);
+        const endIdx = content.indexOf(FLOWCOMMAND_SECTION_END);
 
-        // No TaskSync section found
+        // No FlowCommand section found
         if (startIdx === -1 && endIdx === -1) {
             return 'missing';
         }
@@ -458,8 +458,8 @@ async function checkCopilotInstructionsState(expectedContent: string): Promise<'
         }
 
         // Extract current section content
-        const currentSection = content.substring(startIdx, endIdx + TASKSYNC_SECTION_END.length);
-        const expectedSection = `${TASKSYNC_SECTION_START}\n${expectedContent}\n${TASKSYNC_SECTION_END}`;
+        const currentSection = content.substring(startIdx, endIdx + FLOWCOMMAND_SECTION_END.length);
+        const expectedSection = `${FLOWCOMMAND_SECTION_START}\n${expectedContent}\n${FLOWCOMMAND_SECTION_END}`;
 
         if (currentSection === expectedSection) {
             return 'correct';
@@ -472,16 +472,16 @@ async function checkCopilotInstructionsState(expectedContent: string): Promise<'
 }
 
 /**
- * Check if codeGeneration.instructions has the correct TaskSync entry
+ * Check if codeGeneration.instructions has the correct FlowCommand entry
  * Returns: 'correct' | 'missing' | 'modified'
  */
 function checkCodeGenSettingsState(expectedContent: string): 'correct' | 'missing' | 'modified' {
-    const settingsText = `${TASKSYNC_MARKER} ${expectedContent}`;
+    const settingsText = `${FLOWCOMMAND_MARKER} ${expectedContent}`;
     const copilotConfig = vscode.workspace.getConfiguration('github.copilot.chat');
     const currentInstructions = copilotConfig.get<Array<{ text?: string; file?: string }>>('codeGeneration.instructions', []);
 
     const existingEntry = currentInstructions.find(
-        (inst) => inst.text && inst.text.includes(TASKSYNC_MARKER)
+        (inst) => inst.text && inst.text.includes(FLOWCOMMAND_MARKER)
     );
 
     if (!existingEntry) {
@@ -507,12 +507,9 @@ function checkCodeGenSettingsState(expectedContent: string): 'correct' | 'missin
  * @param forceInject - If true, bypass state checks and force injection (used when settings change)
  */
 async function handleInstructionInjection(forceInject: boolean = false): Promise<void> {
-    const config = vscode.workspace.getConfiguration('tasksync');
+    const config = vscode.workspace.getConfiguration('flowcommand');
     const method = config.get<string>('instructionInjection', 'off');
     const instructionText = getInstructionText();
-
-    // Migrate old global-level instructions if they exist
-    migrateGlobalToWorkspaceInstructions();
 
     const contentHash = hashContent(instructionText);
     const storedState = getStoredInjectionState();
@@ -528,14 +525,14 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
 
                 if (fileState === 'correct' && !forceInject) {
                     // Already correctly injected - nothing to do
-                    console.log('[TaskSync] Instructions already correctly injected in copilot-instructions.md');
+                    console.log('[FlowCommand] Instructions already correctly injected in copilot-instructions.md');
                     return;
                 }
 
                 if (fileState === 'corrupted') {
                     // Corrupted markers - warn user and offer to fix
                     const action = await vscode.window.showWarningMessage(
-                        'TaskSync detected corrupted instruction markers in copilot-instructions.md. This may cause issues.',
+                        'FlowCommand detected corrupted instruction markers in copilot-instructions.md. This may cause issues.',
                         'Fix Now',
                         'Ignore'
                     );
@@ -547,9 +544,9 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                 }
 
                 if (fileState === 'modified' && !forceInject) {
-                    // User modified the TaskSync section - warn them
+                    // User modified the FlowCommand section - warn them
                     const action = await vscode.window.showWarningMessage(
-                        'TaskSync instructions in copilot-instructions.md have been modified. Re-inject to restore expected behavior?',
+                        'FlowCommand instructions in copilot-instructions.md have been modified. Re-inject to restore expected behavior?',
                         'Re-inject',
                         'Keep Current'
                     );
@@ -565,7 +562,7 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                         // Previously injected with same settings but file/section is now missing
                         // User likely deleted it intentionally - warn but don't auto-inject
                         const action = await vscode.window.showWarningMessage(
-                            'TaskSync instructions are configured but not present in copilot-instructions.md. Re-inject?',
+                            'FlowCommand instructions are configured but not present in copilot-instructions.md. Re-inject?',
                             'Re-inject',
                             'Turn Off'
                         );
@@ -594,14 +591,14 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
 
                 if (settingsState === 'correct' && !forceInject) {
                     // Already correctly injected
-                    console.log('[TaskSync] Instructions already correctly injected in codeGeneration settings');
+                    console.log('[FlowCommand] Instructions already correctly injected in codeGeneration settings');
                     return;
                 }
 
                 if (settingsState === 'modified' && !forceInject) {
                     // User modified - warn
                     const action = await vscode.window.showWarningMessage(
-                        'TaskSync instructions in Code Generation settings have been modified. Re-inject?',
+                        'FlowCommand instructions in Code Generation settings have been modified. Re-inject?',
                         'Re-inject',
                         'Keep Current'
                     );
@@ -615,7 +612,7 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                     if (!forceInject && storedState?.method === method && storedState?.contentHash === contentHash) {
                         // Previously injected but now missing
                         const action = await vscode.window.showWarningMessage(
-                            'TaskSync instructions are configured but not present in Code Generation settings. Re-inject?',
+                            'FlowCommand instructions are configured but not present in Code Generation settings. Re-inject?',
                             'Re-inject',
                             'Turn Off'
                         );
@@ -644,7 +641,7 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
             }
         }
     } catch (err) {
-        console.error('[TaskSync] Failed to handle instruction injection:', err);
+        console.error('[FlowCommand] Failed to handle instruction injection:', err);
     }
 }
 
@@ -652,12 +649,12 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
  * Get the instruction text from settings
  */
 function getInstructionText(): string {
-    const config = vscode.workspace.getConfiguration('tasksync');
+    const config = vscode.workspace.getConfiguration('flowcommand');
     return config.get<string>('instructionText', '');
 }
 
 /**
- * Inject TaskSync instructions into .github/copilot-instructions.md
+ * Inject FlowCommand instructions into .github/copilot-instructions.md
  * @param skipPrompt - If true, inject without prompting user (used for re-injection after user confirms)
  */
 async function injectIntoCopilotInstructionsMd(skipPrompt: boolean = false): Promise<void> {
@@ -671,7 +668,7 @@ async function injectIntoCopilotInstructionsMd(skipPrompt: boolean = false): Pro
     const githubDir = vscode.Uri.joinPath(rootUri, '.github');
     const filePath = vscode.Uri.joinPath(githubDir, 'copilot-instructions.md');
 
-    const sectionContent = `\n\n${TASKSYNC_SECTION_START}\n${instructionText}\n${TASKSYNC_SECTION_END}`;
+    const sectionContent = `\n\n${FLOWCOMMAND_SECTION_START}\n${instructionText}\n${FLOWCOMMAND_SECTION_END}`;
 
     try {
         // Check if file exists
@@ -685,18 +682,18 @@ async function injectIntoCopilotInstructionsMd(skipPrompt: boolean = false): Pro
             // File doesn't exist
         }
 
-        // Check if TaskSync section already exists
-        if (fileExists && existingContent.includes(TASKSYNC_SECTION_START)) {
+        // Check if FlowCommand section already exists
+        if (fileExists && existingContent.includes(FLOWCOMMAND_SECTION_START)) {
             // Update existing section
-            const startIdx = existingContent.indexOf(TASKSYNC_SECTION_START);
-            const endIdx = existingContent.indexOf(TASKSYNC_SECTION_END);
+            const startIdx = existingContent.indexOf(FLOWCOMMAND_SECTION_START);
+            const endIdx = existingContent.indexOf(FLOWCOMMAND_SECTION_END);
             if (startIdx !== -1 && endIdx !== -1) {
-                const currentSection = existingContent.substring(startIdx, endIdx + TASKSYNC_SECTION_END.length);
-                const newSection = `${TASKSYNC_SECTION_START}\n${instructionText}\n${TASKSYNC_SECTION_END}`;
+                const currentSection = existingContent.substring(startIdx, endIdx + FLOWCOMMAND_SECTION_END.length);
+                const newSection = `${FLOWCOMMAND_SECTION_START}\n${instructionText}\n${FLOWCOMMAND_SECTION_END}`;
                 if (currentSection !== newSection) {
-                    const updatedContent = existingContent.substring(0, startIdx) + newSection + existingContent.substring(endIdx + TASKSYNC_SECTION_END.length);
+                    const updatedContent = existingContent.substring(0, startIdx) + newSection + existingContent.substring(endIdx + FLOWCOMMAND_SECTION_END.length);
                     await vscode.workspace.fs.writeFile(filePath, Buffer.from(updatedContent, 'utf-8'));
-                    console.log('[TaskSync] Updated instructions in copilot-instructions.md');
+                    console.log('[FlowCommand] Updated instructions in copilot-instructions.md');
                 }
             }
             return;
@@ -707,14 +704,14 @@ async function injectIntoCopilotInstructionsMd(skipPrompt: boolean = false): Pro
             // Ask user for confirmation
             const action = fileExists ? 'append to' : 'create';
             const confirm = await vscode.window.showInformationMessage(
-                `TaskSync wants to ${action} .github/copilot-instructions.md with TaskSync tool instructions. This ensures the AI always calls ask_user and plan_review.`,
+                `FlowCommand wants to ${action} .github/copilot-instructions.md with FlowCommand tool instructions. This ensures the AI always calls ask_user and plan_review.`,
                 'Allow',
                 'Cancel'
             );
 
             if (confirm !== 'Allow') {
                 // User declined — reset setting to 'off'
-                const cfg = vscode.workspace.getConfiguration('tasksync');
+                const cfg = vscode.workspace.getConfiguration('flowcommand');
                 cfg.update('instructionInjection', 'off', vscode.ConfigurationTarget.Workspace);
                 return;
             }
@@ -724,21 +721,21 @@ async function injectIntoCopilotInstructionsMd(skipPrompt: boolean = false): Pro
             // Append to existing file
             const updatedContent = existingContent + sectionContent;
             await vscode.workspace.fs.writeFile(filePath, Buffer.from(updatedContent, 'utf-8'));
-            console.log('[TaskSync] Appended instructions to copilot-instructions.md');
+            console.log('[FlowCommand] Appended instructions to copilot-instructions.md');
         } else {
             // Create .github directory and file
             try { await vscode.workspace.fs.createDirectory(githubDir); } catch { /* exists */ }
             const newContent = `# Copilot Instructions\n${sectionContent}`;
             await vscode.workspace.fs.writeFile(filePath, Buffer.from(newContent, 'utf-8'));
-            console.log('[TaskSync] Created copilot-instructions.md with instructions');
+            console.log('[FlowCommand] Created copilot-instructions.md with instructions');
         }
     } catch (err) {
-        console.error('[TaskSync] Failed to inject into copilot-instructions.md:', err);
+        console.error('[FlowCommand] Failed to inject into copilot-instructions.md:', err);
     }
 }
 
 /**
- * Remove TaskSync section from .github/copilot-instructions.md
+ * Remove FlowCommand section from .github/copilot-instructions.md
  */
 async function removeFromCopilotInstructionsMd(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -750,15 +747,15 @@ async function removeFromCopilotInstructionsMd(): Promise<void> {
         const fileData = await vscode.workspace.fs.readFile(filePath);
         const content = Buffer.from(fileData).toString('utf-8');
 
-        if (!content.includes(TASKSYNC_SECTION_START)) return;
+        if (!content.includes(FLOWCOMMAND_SECTION_START)) return;
 
-        const startIdx = content.indexOf(TASKSYNC_SECTION_START);
-        const endIdx = content.indexOf(TASKSYNC_SECTION_END);
+        const startIdx = content.indexOf(FLOWCOMMAND_SECTION_START);
+        const endIdx = content.indexOf(FLOWCOMMAND_SECTION_END);
         if (startIdx === -1 || endIdx === -1) return;
 
         // Remove the section (including surrounding newlines)
         let before = content.substring(0, startIdx);
-        let after = content.substring(endIdx + TASKSYNC_SECTION_END.length);
+        let after = content.substring(endIdx + FLOWCOMMAND_SECTION_END.length);
 
         // Clean up extra newlines
         while (before.endsWith('\n\n')) before = before.slice(0, -1);
@@ -769,10 +766,10 @@ async function removeFromCopilotInstructionsMd(): Promise<void> {
         if (updatedContent.length === 0 || updatedContent === '# Copilot Instructions') {
             // File would be empty or just the header we created — delete it
             await vscode.workspace.fs.delete(filePath);
-            console.log('[TaskSync] Removed copilot-instructions.md (was only TaskSync content)');
+            console.log('[FlowCommand] Removed copilot-instructions.md (was only FlowCommand content)');
         } else {
             await vscode.workspace.fs.writeFile(filePath, Buffer.from(updatedContent + '\n', 'utf-8'));
-            console.log('[TaskSync] Removed TaskSync section from copilot-instructions.md');
+            console.log('[FlowCommand] Removed FlowCommand section from copilot-instructions.md');
         }
     } catch {
         // File doesn't exist, nothing to remove
@@ -780,80 +777,57 @@ async function removeFromCopilotInstructionsMd(): Promise<void> {
 }
 
 /**
- * Inject TaskSync instructions into workspace-level codeGeneration.instructions setting
+ * Inject FlowCommand instructions into workspace-level codeGeneration.instructions setting
  */
 function injectIntoCodeGenSettings(): void {
     const instructionText = getInstructionText();
     if (!instructionText.trim()) return;
 
     // Create a concise version for the settings (settings warn about long instructions)
-    const settingsText = `${TASKSYNC_MARKER} ${instructionText}`;
+    const settingsText = `${FLOWCOMMAND_MARKER} ${instructionText}`;
 
     const copilotConfig = vscode.workspace.getConfiguration('github.copilot.chat');
     const currentInstructions = copilotConfig.get<Array<{ text?: string; file?: string }>>('codeGeneration.instructions', []);
 
     const existingIndex = currentInstructions.findIndex(
-        (inst) => inst.text && inst.text.includes(TASKSYNC_MARKER)
+        (inst) => inst.text && inst.text.includes(FLOWCOMMAND_MARKER)
     );
 
     if (existingIndex === -1) {
         const updated = [...currentInstructions, { text: settingsText }];
         copilotConfig.update('codeGeneration.instructions', updated, vscode.ConfigurationTarget.Workspace)
             .then(
-                () => console.log('[TaskSync] Workspace settings instructions injected'),
-                (err: unknown) => console.error('[TaskSync] Failed to inject settings instructions:', err)
+                () => console.log('[FlowCommand] Workspace settings instructions injected'),
+                (err: unknown) => console.error('[FlowCommand] Failed to inject settings instructions:', err)
             );
     } else if (currentInstructions[existingIndex].text !== settingsText) {
         const updated = [...currentInstructions];
         updated[existingIndex] = { text: settingsText };
         copilotConfig.update('codeGeneration.instructions', updated, vscode.ConfigurationTarget.Workspace)
             .then(
-                () => console.log('[TaskSync] Workspace settings instructions updated'),
-                (err: unknown) => console.error('[TaskSync] Failed to update settings instructions:', err)
+                () => console.log('[FlowCommand] Workspace settings instructions updated'),
+                (err: unknown) => console.error('[FlowCommand] Failed to update settings instructions:', err)
             );
     }
 }
 
 /**
- * Remove TaskSync instructions from codeGeneration.instructions setting
+ * Remove FlowCommand instructions from codeGeneration.instructions setting
  */
 function removeFromCodeGenSettings(): void {
     const copilotConfig = vscode.workspace.getConfiguration('github.copilot.chat');
     const currentInstructions = copilotConfig.get<Array<{ text?: string; file?: string }>>('codeGeneration.instructions', []);
 
     const filtered = currentInstructions.filter(
-        (inst) => !(inst.text && inst.text.includes(TASKSYNC_MARKER))
+        (inst) => !(inst.text && inst.text.includes(FLOWCOMMAND_MARKER))
     );
 
     if (filtered.length !== currentInstructions.length) {
         const newValue = filtered.length > 0 ? filtered : undefined;
         copilotConfig.update('codeGeneration.instructions', newValue, vscode.ConfigurationTarget.Workspace)
             .then(
-                () => console.log('[TaskSync] Removed settings instructions'),
-                (err: unknown) => console.error('[TaskSync] Failed to remove settings instructions:', err)
-            );
-    }
-}
-
-/**
- * One-time migration: remove old Global-level TaskSync instructions
- * (from previous version that used ConfigurationTarget.Global)
- */
-function migrateGlobalToWorkspaceInstructions(): void {
-    const copilotConfig = vscode.workspace.getConfiguration('github.copilot.chat');
-
-    const globalInspected = copilotConfig.inspect<Array<{ text?: string; file?: string }>>('codeGeneration.instructions');
-    const globalInstructions = globalInspected?.globalValue;
-
-    if (globalInstructions && globalInstructions.some(inst => inst.text && inst.text.includes(TASKSYNC_MARKER))) {
-        const filtered = globalInstructions.filter(
-            (inst) => !(inst.text && inst.text.includes(TASKSYNC_MARKER))
-        );
-        const newValue = filtered.length > 0 ? filtered : undefined;
-        copilotConfig.update('codeGeneration.instructions', newValue, vscode.ConfigurationTarget.Global)
-            .then(
-                () => console.log('[TaskSync] Migrated: removed old global-level instructions'),
-                (err: unknown) => console.error('[TaskSync] Migration failed:', err)
+                () => console.log('[FlowCommand] Removed settings instructions'),
+                (err: unknown) => console.error('[FlowCommand] Failed to remove settings instructions:', err)
             );
     }
 }

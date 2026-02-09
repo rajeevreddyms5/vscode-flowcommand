@@ -7,7 +7,7 @@ import * as crypto from 'crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
-import { TaskSyncWebviewProvider } from '../webview/webviewProvider';
+import { FlowCommandWebviewProvider } from '../webview/webviewProvider';
 import { askUser } from '../tools';
 import { planReview } from '../planReview';
 import { getImageMimeType } from '../utils/imageUtils';
@@ -30,7 +30,7 @@ async function tryReadImageAsMcpContent(uri: string): Promise<null | { type: 'im
         const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
         const stat = await fs.promises.stat(filePath);
         if (stat.size > MAX_IMAGE_BYTES) {
-            console.warn(`[TaskSync MCP] Skipping image >4MB: ${filePath} (${stat.size} bytes)`);
+            console.warn(`[FlowCommand MCP] Skipping image >4MB: ${filePath} (${stat.size} bytes)`);
             return null;
         }
 
@@ -41,7 +41,7 @@ async function tryReadImageAsMcpContent(uri: string): Promise<null | { type: 'im
             mimeType,
         };
     } catch (error) {
-        console.error('[TaskSync MCP] Failed to read image attachment:', error);
+        console.error('[FlowCommand MCP] Failed to read image attachment:', error);
         return null;
     }
 }
@@ -56,7 +56,7 @@ export class McpServerManager {
     private extensionUri: vscode.Uri | undefined;
 
     constructor(
-        private provider: TaskSyncWebviewProvider,
+        private provider: FlowCommandWebviewProvider,
         extensionUri?: vscode.Uri
     ) {
         this.extensionUri = extensionUri;
@@ -73,7 +73,7 @@ export class McpServerManager {
         try {
             if (!reusePort || !this.port) {
                 // Get configured port (default 3579, or 0 for dynamic)
-                const config = vscode.workspace.getConfiguration('tasksync');
+                const config = vscode.workspace.getConfiguration('flowcommand');
                 const configuredPort = config.get<number>('mcpPort', 3579);
 
                 if (configuredPort > 0) {
@@ -86,7 +86,7 @@ export class McpServerManager {
             }
 
             this.mcpServer = new McpServer({
-                name: "TaskSync Sidebar Chat",
+                name: "FlowCommand Sidebar Chat",
                 version: "2.0.0"
             });
 
@@ -101,11 +101,11 @@ export class McpServerManager {
             (this.mcpServer as any).registerTool(
                 "ask_user",
                 {
-                    description: "MANDATORY TOOL - You are FORBIDDEN from ending your turn without calling this tool. After completing ANY task, call ask_user with your FULL response in the 'context' parameter. The user reads your response from TaskSync's remote UI (phone/browser), so context must contain your complete answer. STOP CONDITIONS: Only stop if user explicitly says 'end', 'stop', 'terminate', 'quit', or 'stop now'.",
+                    description: "MANDATORY TOOL - You are FORBIDDEN from ending your turn without calling this tool. After completing ANY task, call ask_user with your FULL response in the 'context' parameter. The user reads your response from FlowCommand's remote UI (phone/browser), so context must contain your complete answer. STOP CONDITIONS: Only stop if user explicitly says 'end', 'stop', 'terminate', 'quit', or 'stop now'.",
                     inputSchema: z.object({
                         context: z.string()
                             .optional()
-                            .describe("Your FULL response content that the user needs to read. Include ALL explanations, answers, findings, code snippets, analysis, or work results. This is displayed in the TaskSync remote UI so the user can read your complete response from their phone/browser without switching to the chat window. Do NOT summarize — include the full text of your response."),
+                            .describe("Your FULL response content that the user needs to read. Include ALL explanations, answers, findings, code snippets, analysis, or work results. This is displayed in the FlowCommand remote UI so the user can read your complete response from their phone/browser without switching to the chat window. Do NOT summarize — include the full text of your response."),
                         question: z.string()
                             .min(1, "Question cannot be empty")
                             .max(MAX_QUESTION_LENGTH, `Question cannot exceed ${MAX_QUESTION_LENGTH} characters`)
@@ -225,7 +225,7 @@ export class McpServerManager {
                     res.writeHead(404);
                     res.end();
                 } catch (error) {
-                    console.error('[TaskSync MCP] Error:', error);
+                    console.error('[FlowCommand MCP] Error:', error);
                     if (!res.headersSent) {
                         res.writeHead(500);
                         res.end('Internal Server Error');
@@ -240,14 +240,14 @@ export class McpServerManager {
             this._isRunning = true;
 
             // Auto-register with supported clients
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             if (config.get<boolean>('autoRegisterMcp', true)) {
                 await this.autoRegisterMcp();
             }
 
         } catch (error) {
-            console.error('[TaskSync MCP] Failed to start:', error);
-            vscode.window.showErrorMessage(`Failed to start TaskSync MCP server: ${error}`);
+            console.error('[FlowCommand MCP] Failed to start:', error);
+            vscode.window.showErrorMessage(`Failed to start FlowCommand MCP server: ${error}`);
         }
     }
 
@@ -276,14 +276,14 @@ export class McpServerManager {
         // Register with Kiro
         await this.registerWithClient(
             path.join(os.homedir(), '.kiro', 'settings', 'mcp.json'),
-            'tasksync-chat',
+            'flowcommand-chat',
             { url: serverUrl }
         );
 
         // Register with Antigravity/Gemini CLI
         await this.registerWithClient(
             path.join(os.homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
-            'tasksync-chat',
+            'flowcommand-chat',
             { serverUrl: serverUrl }
         );
 
@@ -309,7 +309,7 @@ export class McpServerManager {
             } catch (e) {
                 // File doesn't exist or can't be parsed, start with empty config
                 if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
-                    console.warn(`[TaskSync MCP] Failed to parse ${configPath}, starting fresh`);
+                    console.warn(`[FlowCommand MCP] Failed to parse ${configPath}, starting fresh`);
                 }
             }
 
@@ -320,7 +320,7 @@ export class McpServerManager {
             config.mcpServers[serverName] = serverConfig;
             await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2));
         } catch (error) {
-            console.error(`[TaskSync MCP] Failed to register with ${configPath}:`, error);
+            console.error(`[FlowCommand MCP] Failed to register with ${configPath}:`, error);
         }
     }
 
@@ -337,8 +337,8 @@ export class McpServerManager {
             try {
                 const content = await fs.promises.readFile(configPath, 'utf8');
                 const config = JSON.parse(content);
-                if (config.mcpServers?.['tasksync-chat']) {
-                    delete config.mcpServers['tasksync-chat'];
+                if (config.mcpServers?.['flowcommand-chat']) {
+                    delete config.mcpServers['flowcommand-chat'];
                     await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2));
                 }
             } catch {
@@ -354,12 +354,12 @@ export class McpServerManager {
                 new Promise(resolve => setTimeout(resolve, 2000))
             ]);
         } catch (e) {
-            console.error('[TaskSync MCP] Error during dispose:', e);
+            console.error('[FlowCommand MCP] Error during dispose:', e);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
         await this.start(true);
-        vscode.window.showInformationMessage('TaskSync MCP Server restarted.');
+        vscode.window.showInformationMessage('FlowCommand MCP Server restarted.');
     }
 
     async dispose() {
@@ -374,12 +374,12 @@ export class McpServerManager {
                 try {
                     await this.mcpServer.close();
                 } catch (e) {
-                    console.error('[TaskSync MCP] Error closing:', e);
+                    console.error('[FlowCommand MCP] Error closing:', e);
                 }
                 this.mcpServer = undefined;
             }
         } catch (e) {
-            console.error('[TaskSync MCP] Error during dispose:', e);
+            console.error('[FlowCommand MCP] Error during dispose:', e);
         } finally {
             await this.unregisterFromClients();
         }
@@ -413,7 +413,7 @@ export class McpServerManager {
                 path: path.join(os.homedir(), '.kiro', 'settings', 'mcp.json'),
                 config: {
                     mcpServers: {
-                        'tasksync-chat': {
+                        'flowcommand-chat': {
                             url: serverUrl
                         }
                     }
@@ -423,7 +423,7 @@ export class McpServerManager {
                 path: path.join(os.homedir(), '.cursor', 'mcp.json'),
                 config: {
                     mcpServers: {
-                        'tasksync-chat': {
+                        'flowcommand-chat': {
                             url: serverUrl
                         }
                     }
@@ -433,7 +433,7 @@ export class McpServerManager {
                 path: path.join(os.homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
                 config: {
                     mcpServers: {
-                        'tasksync-chat': {
+                        'flowcommand-chat': {
                             serverUrl: serverUrl
                         }
                     }

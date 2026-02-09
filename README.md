@@ -1,26 +1,26 @@
-# TaskSync Remote
+# FlowCommand
 
-**Automate AI conversations. Queue your prompts. Control from your phone or browser.**
+**Command your AI workflow. Queue prompts, review plans, control from phone/browser.**
 
-TaskSync Remote lets you batch and queue your prompts to AI agents in VS Code, so they can keep working while you stay focused. Perfect for long-running tasks, repetitive workflows, or hands-free automation—saving you time and reducing premium requests.
+FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, review multi-step plans, pause processing, and access everything from your phone or browser. Perfect for long-running tasks, hands-free automation, and staying in command of your AI workflow.
 
-> **Fork of:** [4regab/TaskSync](https://github.com/4regab/TaskSync) - The original TaskSync extension. This fork adds a built-in remote server for mobile/browser access.
+> **Built on:** [4regab/TaskSync](https://github.com/4regab/TaskSync) - FlowCommand extends TaskSync with remote access, plan review panels, mobile notifications, and enhanced interaction features.
 
 ---
 
-## 🆕 What's New in TaskSync Remote
+## 🚀 Key Features
 
-Compared to the original TaskSync, this fork includes these **exclusive features**:
-
-| Feature | Original TaskSync | TaskSync Remote |
-|---------|-------------------|-----------------|
-| **Built-in Remote Server** | ❌ Not available | ✅ Control VS Code from phone/tablet/browser |
-| **Remote UI Light/Dark Theme** | N/A | ✅ Full light & dark theme with proper toggle |
-| **Terminal Output Display** | N/A | ✅ Terminal-style display with working directory (PS C:\path>) |
-| **Connection Stability** | N/A | ✅ Smart reconnection, no aggressive polling |
-| **Terminal Escape Codes** | N/A | ✅ Clean output with escape codes stripped |
-| **File Browser in Remote UI** | N/A | ✅ Browse workspace files from mobile |
-| **Mobile-Optimized UI** | N/A | ✅ Fully responsive with improved spacing |
+| Feature | Description |
+|---------|-------------|
+| **Smart Queue Mode** | Batch prompts for automatic responses |
+| **Plan Review Panel** | Dedicated 70/30 editor panel with inline comments |
+| **Remote Access** | Control from phone/tablet/browser via QR code |
+| **Mobile Notifications** | Push notifications when AI needs input |
+| **Interactive Approval** | Yes/No/Option buttons parsed from AI questions |
+| **Queue Pause/Play** | Temporarily pause auto-responses |
+| **Reusable Prompts** | /slash commands for frequent prompts |
+| **File & Image Support** | `#` references and image paste/drag |
+| **MCP Server** | Integration with Kiro, Cursor, and other IDEs |
 
 ---
 
@@ -62,10 +62,12 @@ Save frequently used prompts:
 2. Create prompts with short names (e.g., "fix", "test", "refactor")
 3. Type `/` in the input to see and use your saved prompts
 
+---
+
 ## Installation
 
 1. Install from VS Code Marketplace
-2. Open VS Code and access TaskSync from the Activity Bar
+2. Open VS Code and access FlowCommand from the Activity Bar
 3. Enable the tool
 
 ## Building from Source
@@ -77,8 +79,8 @@ Save frequently used prompts:
 ### Development Setup
 1. Clone the repository:
    ```bash
-   git clone https://github.com/rajeevreddyms5/tasksync_remote.git
-   cd tasksync_remote
+   git clone https://github.com/rajeevreddyms5/vscode-flowcommand.git
+   cd flowcommand
    ```
 
 2. Install dependencies:
@@ -115,35 +117,22 @@ To create a publishable VSIX package:
    vsce package
    ```
 
-This will generate a `.vsix` file that can be published to the VS Code Marketplace or installed locally.
-
-### CI/CD
-This repository includes GitHub Actions workflows for automated building and releasing:
-- **Build**: Runs on every push and PR to verify the extension builds correctly
-- **Release**: Automatically packages and attaches VSIX files to GitHub releases
-
-To create a new release:
-1. Update version in `package.json`
-2. Create a git tag: `git tag v1.x.x`
-3. Push the tag: `git push origin v1.x.x`
-4. GitHub will automatically create a release and attach the VSIX file
-
 ---
 
 ## 🤖 AI Instructions Setup (Recommended)
 
-For TaskSync to work effectively, the AI needs to know when to call `ask_user` and `plan_review` tools. There are three ways to set this up:
+For FlowCommand to work effectively, the AI needs to know when to call `ask_user` and `plan_review` tools.
 
 ### Option 1: Auto-Inject (Recommended) ⭐
 
-TaskSync can automatically inject instructions into your project's `.github/copilot-instructions.md` file.
+FlowCommand can automatically inject instructions into your project's `.github/copilot-instructions.md` file.
 
-1. Open TaskSync Settings (⚙️ icon in title bar)
+1. Open FlowCommand Settings (⚙️ icon in title bar)
 2. Set **Instruction Injection** to `"Inject into .github/copilot-instructions.md"`
-3. TaskSync will prompt to create/modify the file
+3. FlowCommand will prompt to create/modify the file
 4. Approve the change - instructions are now active for all Copilot modes
 
-**Settings path**: `tasksync.instructionInjection: "copilotInstructionsMd"`
+**Settings path**: `flowcommand.instructionInjection: "copilotInstructionsMd"`
 
 ### Option 2: Manual Setup
 
@@ -196,14 +185,14 @@ Edit the instruction text in Settings → **Instruction Text** to modify the AI 
 ## Usage
 
 ### Queue Mode (Default)
-1. Toggle "Queue Mode" ON in the TaskSync panel
+1. Toggle "Queue Mode" ON in the FlowCommand panel
 2. Type messages and press Enter to add them to the queue
-3. When an AI agent calls `ask_user`, TaskSync automatically responds with the next queued message
+3. When an AI agent calls `ask_user`, FlowCommand automatically responds with the next queued message
 4. Queue items can be reordered, edited, or removed
 
 ### Normal Mode
 1. Toggle "Queue Mode" OFF
-2. When an AI agent calls `ask_user`, you'll see the prompt in TaskSync
+2. When an AI agent calls `ask_user`, you'll see the prompt in FlowCommand
 3. Type your response and press Enter to send
 
 ### File References
@@ -213,11 +202,11 @@ Edit the instruction text in Settings → **Instruction Text** to modify the AI 
 4. Multiple attachments supported per message
 
 ### Remote Access (Mobile/Web)
-Access TaskSync from your phone, tablet, or any browser on your local network:
+Access FlowCommand from your phone, tablet, or any browser on your local network:
 
-1. Click the broadcast icon (📡) in the TaskSync title bar to start the remote server
+1. Click the broadcast icon (📡) in the FlowCommand title bar to start the remote server
 2. Scan the QR code or open the displayed URL on your device
-3. Full TaskSync functionality available remotely:
+3. Full FlowCommand functionality available remotely:
    - View and respond to AI prompts
    - Manage the queue
    - Browse and select workspace files
@@ -229,53 +218,53 @@ Access TaskSync from your phone, tablet, or any browser on your local network:
 
 ## ⚙️ Settings Reference
 
-Open Settings via the ⚙️ icon in the TaskSync title bar, or search `tasksync` in VS Code settings.
+Open Settings via the ⚙️ icon in the FlowCommand title bar, or search `flowcommand` in VS Code settings.
 
 ### Notification Settings
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `tasksync.notificationSound` | `true` | Play sound when AI calls `ask_user` |
-| `tasksync.desktopNotification` | `true` | Show VS Code notification popup |
-| `tasksync.autoFocusPanel` | `true` | Auto-focus TaskSync panel when AI requests input |
-| `tasksync.mobileNotification` | `false` | Send browser push notification to connected remote clients |
+| `flowcommand.notificationSound` | `true` | Play sound when AI calls `ask_user` |
+| `flowcommand.desktopNotification` | `true` | Show VS Code notification popup |
+| `flowcommand.autoFocusPanel` | `true` | Auto-focus FlowCommand panel when AI requests input |
+| `flowcommand.mobileNotification` | `false` | Send browser push notification to connected remote clients |
 
 ### Instruction Settings
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `tasksync.instructionInjection` | `"off"` | How to inject AI instructions. Options: `off`, `copilotInstructionsMd` (recommended), `codeGenerationSetting` |
-| `tasksync.instructionText` | [See below] | The instruction rules injected into Copilot |
+| `flowcommand.instructionInjection` | `"off"` | How to inject AI instructions. Options: `off`, `copilotInstructionsMd` (recommended), `codeGenerationSetting` |
+| `flowcommand.instructionText` | [See below] | The instruction rules injected into Copilot |
 
 ### Remote Server Settings
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `tasksync.remoteEnabled` | `false` | Auto-start remote server on extension activation |
-| `tasksync.remotePort` | `3000` | Port for remote server |
+| `flowcommand.remoteEnabled` | `false` | Auto-start remote server on extension activation |
+| `flowcommand.remotePort` | `3000` | Port for remote server |
 
 ### MCP Server Settings
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `tasksync.mcpEnabled` | `false` | Always start MCP server on activation |
-| `tasksync.mcpPort` | `3579` | Port for MCP server |
-| `tasksync.autoRegisterMcp` | `true` | Auto-register with Kiro/Cursor |
+| `flowcommand.mcpEnabled` | `false` | Always start MCP server on activation |
+| `flowcommand.mcpPort` | `3579` | Port for MCP server |
+| `flowcommand.autoRegisterMcp` | `true` | Auto-register with Kiro/Cursor |
 
 ---
 
 ### MCP Server Integration
-TaskSync runs an MCP (Model Context Protocol) server that integrates with:
+FlowCommand runs an MCP (Model Context Protocol) server that integrates with:
 - **Kiro** (auto-configured)
 - **Cursor** (auto-configured)
 - **Claude Desktop**
 - **Any MCP-compatible client**
 
 
-## MCP Configuration for other IDE (Not needed with copilot)
+## MCP Configuration for other IDE (Not needed with Copilot)
 
-TaskSync automatically registers with Kiro and Cursor. For other clients, add this to your MCP configuration:
+FlowCommand automatically registers with Kiro and Cursor. For other clients, add this to your MCP configuration:
 
 ```json
 {
   "mcpServers": {
-    "tasksync": {
+    "flowcommand": {
       "transport": "sse",
       "url": "http://localhost:3579/sse"
     }
@@ -296,8 +285,8 @@ TaskSync automatically registers with Kiro and Cursor. For other clients, add th
 - Firewall may need to allow connection on the configured port
 
 ### MCP Server Issues
-- Verify port 3579 is free or configure `tasksync.mcpPort`
-- For Kiro/Cursor, restart the IDE after enabling TaskSync
+- Verify port 3579 is free or configure `flowcommand.mcpPort`
+- For Kiro/Cursor, restart the IDE after enabling FlowCommand
 
 ## License
 
@@ -307,16 +296,18 @@ MIT - See [LICENSE](LICENSE) for details.
 
 ## Credits & Attribution
 
-This project is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync), the original TaskSync extension.
+FlowCommand is built on [4regab/TaskSync](https://github.com/4regab/TaskSync), the original TaskSync extension.
 
-**This fork adds:**
+**FlowCommand adds:**
 - Built-in remote server for mobile/browser access
-- Light/dark theme support for remote UI
-- Terminal output display with working directory
-- Connection stability improvements
-- Mobile-optimized responsive UI
+- Plan review panel with 70/30 split layout and inline comments
+- Mobile push notifications
+- Interactive approval buttons (Yes/No, numbered options)
+- Queue pause/play
+- Prompt templates
+- Enhanced theme synchronization
 
-Thank you to the original creators for making TaskSync possible!
+Thank you to the original TaskSync creators for making this possible!
 
 > ⚠️ **GitHub Security Notice:**  
-> GitHub prohibits use of their servers for excessive automated bulk activity. Please review [GitHub Acceptable Use Policies](https://docs.github.com/site-policy/acceptable-use-policies/github-acceptable-use-policies#4-spam-and-inauthentic-activity-on-github) and use TaskSync responsibly.
+> GitHub prohibits use of their servers for excessive automated bulk activity. Please review [GitHub Acceptable Use Policies](https://docs.github.com/site-policy/acceptable-use-policies/github-acceptable-use-policies#4-spam-and-inauthentic-activity-on-github) and use FlowCommand responsibly.

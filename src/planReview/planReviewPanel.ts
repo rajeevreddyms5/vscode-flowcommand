@@ -12,7 +12,7 @@ import {
  * Users can approve, approve with comments, or request changes.
  */
 export class PlanReviewPanel {
-    public static readonly viewType = 'tasksyncPlanReview';
+    public static readonly viewType = 'flowcommandPlanReview';
 
     /** Track open panels by interaction ID */
     private static panels: Map<string, PlanReviewPanel> = new Map();

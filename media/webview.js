@@ -1,5 +1,5 @@
 /**
- * TaskSync Extension - Webview Script
+ * FlowCommand Extension - Webview Script
  * Handles tool call history, prompt queue, attachments, and file autocomplete
  */
 (function () {
@@ -83,7 +83,7 @@
 
     function init() {
         try {
-            console.log('[TaskSync Webview] init() starting...');
+            console.log('[FlowCommand Webview] init() starting...');
             cacheDOMElements();
             createHistoryModal();
             createEditModeUI();
@@ -92,7 +92,7 @@
             createPromptsModal();
             bindEventListeners();
             unlockAudioOnInteraction(); // Enable audio after first user interaction
-            console.log('[TaskSync Webview] Event listeners bound, pendingMessage element:', !!pendingMessage);
+            console.log('[FlowCommand Webview] Event listeners bound, pendingMessage element:', !!pendingMessage);
             renderQueue();
             updateModeUI();
             updateQueueVisibility();
@@ -112,10 +112,10 @@
             }
 
             // Signal to extension that webview is ready to receive messages
-            console.log('[TaskSync Webview] Sending webviewReady message');
+            console.log('[FlowCommand Webview] Sending webviewReady message');
             vscode.postMessage({ type: 'webviewReady' });
         } catch (err) {
-            console.error('[TaskSync] Init error:', err);
+            console.error('[FlowCommand] Init error:', err);
         }
     }
 
@@ -337,7 +337,7 @@
         reportBtn.title = 'Report Issue';
         reportBtn.setAttribute('aria-label', 'Report an issue on GitHub');
         reportBtn.addEventListener('click', function () {
-            vscode.postMessage({ type: 'openExternal', url: 'https://github.com/rajeevreddyms5/tasksync_extention/issues/new' });
+            vscode.postMessage({ type: 'openExternal', url: 'https://github.com/issues/new' });
         });
         headerButtons.appendChild(reportBtn);
 
@@ -378,7 +378,7 @@
         autoFocusSection.className = 'settings-section';
         autoFocusSection.innerHTML = '<div class="settings-section-header">' +
             '<div class="settings-section-title"><span class="codicon codicon-pin"></span> Auto-Focus Panel</div>' +
-            '<div class="toggle-switch active" id="auto-focus-panel-toggle" role="switch" aria-checked="true" aria-label="Auto-focus TaskSync panel on new question" tabindex="0"></div>' +
+            '<div class="toggle-switch active" id="auto-focus-panel-toggle" role="switch" aria-checked="true" aria-label="Auto-focus FlowCommand panel on new question" tabindex="0"></div>' +
             '</div>';
         modalContent.appendChild(autoFocusSection);
 
@@ -424,7 +424,7 @@
         instructionSection.innerHTML = '<div class="settings-section-header">' +
             '<div class="settings-section-title"><span class="codicon codicon-symbol-misc"></span> Instruction Injection</div>' +
             '</div>' +
-            '<div class="settings-section-description">Injects TaskSync instructions into Copilot so it always calls ask_user and plan_review. Injection is applied at <strong>workspace level</strong> — it only affects this workspace. Choose a method and click Inject.</div>' +
+            '<div class="settings-section-description">Injects FlowCommand instructions into Copilot so it always calls ask_user and plan_review. Injection is applied at <strong>workspace level</strong> — it only affects this workspace. Choose a method and click Inject.</div>' +
             '<div class="form-row" style="margin-top:8px;">' +
             '<label class="form-label" for="instruction-injection-select">Method</label>' +
             '<select class="form-select" id="instruction-injection-select">' +
@@ -568,15 +568,15 @@
 
         // Drag-and-drop image support on the input area
         var dropTarget = inputAreaContainer || chatInput;
-        console.log('[TaskSync] Setting up drag-drop, dropTarget found:', !!dropTarget);
+        console.log('[FlowCommand] Setting up drag-drop, dropTarget found:', !!dropTarget);
         if (dropTarget) {
             // Helper: check if drag event might contain files or file URIs
             function hasDragFiles(dt) {
                 if (!dt || !dt.types) {
-                    console.log('[TaskSync] hasDragFiles: no dataTransfer or types');
+                    console.log('[FlowCommand] hasDragFiles: no dataTransfer or types');
                     return false;
                 }
-                console.log('[TaskSync] hasDragFiles: types =', Array.from(dt.types).join(', '));
+                console.log('[FlowCommand] hasDragFiles: types =', Array.from(dt.types).join(', '));
                 for (var i = 0; i < dt.types.length; i++) {
                     var t = dt.types[i];
                     if (t === 'Files' || t === 'text/uri-list' || t.indexOf('vscode') !== -1) return true;
@@ -585,7 +585,7 @@
             }
 
             dropTarget.addEventListener('dragover', function (e) {
-                console.log('[TaskSync] dragover event');
+                console.log('[FlowCommand] dragover event');
                 if (hasDragFiles(e.dataTransfer)) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -607,20 +607,20 @@
                 }
             });
             dropTarget.addEventListener('drop', function (e) {
-                console.log('[TaskSync] Drop event triggered');
+                console.log('[FlowCommand] Drop event triggered');
                 e.preventDefault();
                 e.stopPropagation();
                 dropTarget.classList.remove('drag-over-input');
                 var handled = false;
 
-                console.log('[TaskSync] Files count:', e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files.length : 0);
+                console.log('[FlowCommand] Files count:', e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files.length : 0);
                 // First: try standard File API (works for OS file manager drops)
                 if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                     for (var i = 0; i < e.dataTransfer.files.length; i++) {
                         var file = e.dataTransfer.files[i];
-                        console.log('[TaskSync] File:', file.name, 'type:', file.type);
+                        console.log('[FlowCommand] File:', file.name, 'type:', file.type);
                         if (file.type.indexOf('image/') === 0) {
-                            console.log('[TaskSync] Processing image file:', file.name);
+                            console.log('[FlowCommand] Processing image file:', file.name);
                             processImageFile(file);
                             handled = true;
                         }
@@ -781,10 +781,10 @@
         // This allows socket.io messages from the remote server to be processed
         // by the same handler as VS Code extension messages
         window.dispatchVSCodeMessage = function(message) {
-            console.log('[TaskSync Webview] dispatchVSCodeMessage called:', message.type);
+            console.log('[FlowCommand Webview] dispatchVSCodeMessage called:', message.type);
             handleExtensionMessage({ data: message });
         };
-        console.log('[TaskSync Webview] dispatchVSCodeMessage registered on window');
+        console.log('[FlowCommand Webview] dispatchVSCodeMessage registered on window');
     }
 
     function openHistoryModal() {
@@ -1275,7 +1275,7 @@
 
     function handleExtensionMessage(event) {
         var message = event.data;
-        console.log('[TaskSync Webview] Received message:', message.type, message);
+        console.log('[FlowCommand Webview] Received message:', message.type, message);
         switch (message.type) {
             case 'updateQueue':
                 promptQueue = message.queue || [];
@@ -1292,7 +1292,7 @@
                 updateWelcomeSectionVisibility();
                 break;
             case 'toolCallPending':
-                console.log('[TaskSync Webview] toolCallPending - showing question:', message.prompt?.substring(0, 50));
+                console.log('[FlowCommand Webview] toolCallPending - showing question:', message.prompt?.substring(0, 50));
                 showPendingToolCall(message.id, message.prompt, message.isApprovalQuestion, message.choices, message.context);
                 break;
             case 'toolCallCompleted':
@@ -1416,7 +1416,7 @@
     }
 
     function showPendingToolCall(id, prompt, isApproval, choices, context) {
-        console.log('[TaskSync Webview] showPendingToolCall called with id:', id);
+        console.log('[FlowCommand Webview] showPendingToolCall called with id:', id);
         pendingToolCall = { id: id, prompt: prompt, context: context };
         isProcessingResponse = false; // AI is now asking, not processing
         isApprovalQuestion = isApproval === true;
@@ -1434,7 +1434,7 @@
 
         // Show AI context (full response) and question
         if (pendingMessage) {
-            console.log('[TaskSync Webview] Setting pendingMessage innerHTML...');
+            console.log('[FlowCommand Webview] Setting pendingMessage innerHTML...');
             pendingMessage.classList.remove('hidden');
             var html = '';
             if (context && context.trim()) {
@@ -1445,9 +1445,9 @@
             }
             html += '<div class="pending-ai-question">' + formatMarkdown(prompt) + '</div>';
             pendingMessage.innerHTML = html;
-            console.log('[TaskSync Webview] pendingMessage.innerHTML set, length:', pendingMessage.innerHTML.length);
+            console.log('[FlowCommand Webview] pendingMessage.innerHTML set, length:', pendingMessage.innerHTML.length);
         } else {
-            console.error('[TaskSync Webview] pendingMessage element is null!');
+            console.error('[FlowCommand Webview] pendingMessage element is null!');
         }
 
         // Re-render current session (without the pending item - it's shown separately)
@@ -1516,7 +1516,7 @@
      * Dismisses the pending tool call UI and clears all waiting states.
      */
     function handleToolCallCancelled(id) {
-        console.log('[TaskSync Webview] toolCallCancelled:', id);
+        console.log('[FlowCommand Webview] toolCallCancelled:', id);
 
         // Only act if this matches the current pending tool call
         if (pendingToolCall && pendingToolCall.id === id) {
@@ -1569,7 +1569,7 @@
         // Start new timeout
         processingTimeoutId = setTimeout(function() {
             if (isProcessingResponse) {
-                console.log('[TaskSync] Processing timeout - auto-clearing stuck processing state');
+                console.log('[FlowCommand] Processing timeout - auto-clearing stuck processing state');
                 clearProcessingState();
             }
             processingTimeoutId = null;
@@ -2404,7 +2404,7 @@
         // Request notification permission immediately on user gesture (required by browsers)
         if (mobileNotificationEnabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
             Notification.requestPermission().then(function(permission) {
-                console.log('[TaskSync] Notification permission:', permission);
+                console.log('[FlowCommand] Notification permission:', permission);
             });
         }
         vscode.postMessage({ type: 'updateMobileNotificationSetting', enabled: mobileNotificationEnabled });
@@ -2745,7 +2745,7 @@
     function showMultiQuestionModal(requestId, questions) {
         // Input validation - prevent hangs from malformed data
         if (!requestId || !questions || !Array.isArray(questions) || questions.length === 0) {
-            console.error('[TaskSync] showMultiQuestionModal: invalid input', requestId, questions);
+            console.error('[FlowCommand] showMultiQuestionModal: invalid input', requestId, questions);
             // Send empty response to unblock the AI
             vscode.postMessage({ type: 'multiQuestionResponse', requestId: requestId || 'invalid', answers: [] });
             return;
@@ -3335,7 +3335,7 @@
                         audio.currentTime = 0;
                         audio.volume = 0.5;
                         audioUnlocked = true;
-                        console.log('[TaskSync] Audio unlocked successfully');
+                        console.log('[FlowCommand] Audio unlocked successfully');
                     }).catch(function () {
                         // Still locked, will try again on next interaction
                     });
@@ -3350,22 +3350,22 @@
     }
 
     function playNotificationSound() {
-        console.log('[TaskSync] playNotificationSound called, audioUnlocked:', audioUnlocked);
+        console.log('[FlowCommand] playNotificationSound called, audioUnlocked:', audioUnlocked);
         
         // First try the preloaded audio element
         try {
             var audio = document.getElementById('notification-sound');
-            console.log('[TaskSync] Audio element found:', !!audio);
+            console.log('[FlowCommand] Audio element found:', !!audio);
             if (audio && audio.src && !audio.error) {
                 audio.currentTime = 0; // Reset to beginning
                 audio.volume = 0.5;
-                console.log('[TaskSync] Attempting to play audio file...');
+                console.log('[FlowCommand] Attempting to play audio file...');
                 var playPromise = audio.play();
                 if (playPromise !== undefined) {
                     playPromise.then(function () {
-                        console.log('[TaskSync] Audio playback started successfully');
+                        console.log('[FlowCommand] Audio playback started successfully');
                     }).catch(function (e) {
-                        console.log('[TaskSync] Could not play audio file:', e.message);
+                        console.log('[FlowCommand] Could not play audio file:', e.message);
                         // If autoplay blocked or file missing, try Web Audio API beep
                         playWebAudioBeep();
                     });
@@ -3373,7 +3373,7 @@
                 }
             }
         } catch (e) {
-            console.log('[TaskSync] Audio element error:', e);
+            console.log('[FlowCommand] Audio element error:', e);
         }
         
         // Fallback to Web Audio API beep
@@ -3381,11 +3381,11 @@
     }
     
     function playWebAudioBeep() {
-        console.log('[TaskSync] Playing Web Audio API beep');
+        console.log('[FlowCommand] Playing Web Audio API beep');
         try {
             var AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) {
-                console.log('[TaskSync] Web Audio API not supported');
+                console.log('[FlowCommand] Web Audio API not supported');
                 flashNotification();
                 return;
             }
@@ -3409,9 +3409,9 @@
             oscillator.start(audioCtx.currentTime);
             oscillator.stop(audioCtx.currentTime + 0.2);
             
-            console.log('[TaskSync] Web Audio beep played');
+            console.log('[FlowCommand] Web Audio beep played');
         } catch (e) {
-            console.log('[TaskSync] Web Audio API beep failed:', e);
+            console.log('[FlowCommand] Web Audio API beep failed:', e);
             flashNotification();
         }
     }
@@ -3736,14 +3736,14 @@
     }
 
     function processImageFile(file) {
-        console.log('[TaskSync] processImageFile called for:', file.name);
+        console.log('[FlowCommand] processImageFile called for:', file.name);
         var reader = new FileReader();
         reader.onload = function (e) {
-            console.log('[TaskSync] FileReader loaded, sending saveImage message');
+            console.log('[FlowCommand] FileReader loaded, sending saveImage message');
             if (e.target && e.target.result) vscode.postMessage({ type: 'saveImage', data: e.target.result, mimeType: file.type });
         };
         reader.onerror = function () {
-            console.error('[TaskSync] Failed to read image file:', file.name);
+            console.error('[FlowCommand] Failed to read image file:', file.name);
         };
         reader.readAsDataURL(file);
     }

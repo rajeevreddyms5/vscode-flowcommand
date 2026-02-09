@@ -1,6 +1,26 @@
 # Changelog
 
-All notable changes to TaskSync Remote will be documented in this file.
+All notable changes to FlowCommand will be documented in this file.
+
+## [2.0.0] - 2025-02-09
+
+### 🎉 Rebrand to FlowCommand
+
+FlowCommand is a new identity for this extension, built on [4regab/TaskSync](https://github.com/4regab/TaskSync).
+
+**Why the rebrand?** The extension has evolved significantly beyond the original TaskSync with unique features like remote access, plan review panels, mobile notifications, and interactive approval. "FlowCommand" better captures the essence of what the extension does: command your AI workflow.
+
+### Added
+- New branding and identity as FlowCommand
+- Improved testing checklist with clear pass/fail criteria
+
+### Changed
+- All configuration keys updated from `tasksync.*` to `flowcommand.*`
+- All command IDs updated from `tasksync.*` to `flowcommand.*`
+- View container and view IDs renamed to `flowCommandContainer` and `flowCommandView`
+- Updated README with comprehensive feature documentation
+
+---
 
 ## [1.0.4] - 2025-02-07
 
@@ -37,28 +57,23 @@ All notable changes to TaskSync Remote will be documented in this file.
 - Connection stability improvements in remote UI
 
 ### Changed
-- Updated README with feature comparison table highlighting differences from original TaskSync
-- Simplified attribution - now correctly credits original 4regab/TaskSync only
-- Remote server is our own implementation, not derived from intuitiv fork
+- Updated README with feature comparison table
+- Simplified attribution
 
 ## [1.0.0] - 2025-01-27
 
 ### Initial Release
 
-First release of TaskSync Remote with the following features:
+First release with the following features:
 
 - **Smart Queue Mode** - Batch and queue prompts for AI agents
 - **Normal Mode** - Direct interaction with AI agents
 - **File & Folder References** - `#` mentions to attach workspace files
 - **Image Support** - Paste/drag-drop images into chat
 - **Tool Call History** - Track current session and full history
-- **Remote Mobile/Web Access** - Control TaskSync from phone, tablet, or browser
-  - Light/dark theme support
-  - Terminal output display with working directory
-  - File browser for workspace files
-  - QR code for easy mobile connection
+- **Remote Mobile/Web Access** - Control from phone, tablet, or browser
 - **MCP Server Integration** - Works with Kiro, Cursor, Claude Desktop
 
 ### Attribution
 
-Based on [intuitiv/TaskSync](https://github.com/intuitiv/TaskSync), which is a fork of [4regab/TaskSync](https://github.com/4regab/TaskSync).
+Built on [4regab/TaskSync](https://github.com/4regab/TaskSync).

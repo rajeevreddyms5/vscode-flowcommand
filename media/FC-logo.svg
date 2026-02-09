@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- FlowCommand Logo - Option 7A: Queue Bars with F-shape emphasis -->
+  <!-- Clear F letter formed by the bars -->
+  
+  <!-- Top bar (full width - top of F) -->
+  <rect x="24" y="24" width="80" height="14" rx="4" fill="currentColor"/>
+  
+  <!-- Second bar (medium - middle crossbar of F) -->
+  <rect x="24" y="56" width="56" height="14" rx="4" fill="currentColor"/>
+  
+  <!-- Third bar (vertical stem of F) -->
+  <rect x="24" y="88" width="14" height="14" rx="4" fill="currentColor"/>
+  
+  <!-- Flow arrow pointing right -->
+  <path d="M 88 56 L 88 48 L 108 63 L 88 78 L 88 70" 
+        fill="currentColor"/>
+</svg>

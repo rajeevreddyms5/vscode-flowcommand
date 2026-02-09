@@ -135,8 +135,8 @@ type FromWebviewMessage =
     | { type: 'multiQuestionResponse'; requestId: string; answers: Array<{ header: string; selected: string[]; freeformText?: string }> };
 
 
-export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-    public static readonly viewType = 'taskSyncView';
+export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
+    public static readonly viewType = 'flowCommandView';
 
     private _view?: vscode.WebviewView;
     private _pendingRequests: Map<string, (result: UserResponseResult) => void> = new Map();
@@ -251,9 +251,9 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                 if (this._isUpdatingConfig) {
                     return;
                 }
-                if (e.affectsConfiguration('tasksync.notificationSound') ||
-                    e.affectsConfiguration('tasksync.interactiveApproval') ||
-                    e.affectsConfiguration('tasksync.reusablePrompts')) {
+                if (e.affectsConfiguration('flowcommand.notificationSound') ||
+                    e.affectsConfiguration('flowcommand.interactiveApproval') ||
+                    e.affectsConfiguration('flowcommand.reusablePrompts')) {
                     this._loadSettings();
                     this._updateSettingsUI();
                 }
@@ -428,16 +428,16 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         // Show desktop notification
         if (this._desktopNotificationEnabled) {
             vscode.window.showInformationMessage(
-                `TaskSync: Plan Review - ${title}`,
-                'Open TaskSync'
+                `FlowCommand: Plan Review - ${title}`,
+                'Open FlowCommand'
             ).then(action => {
-                if (action === 'Open TaskSync' && this._view) {
+                if (action === 'Open FlowCommand' && this._view) {
                     this._view.show(true);
                 }
             });
         }
         
-        // Auto-focus panel (if  enabled, focus the TaskSync sidebar)
+        // Auto-focus panel (if  enabled, focus the FlowCommand sidebar)
         if (this._autoFocusPanelEnabled && this._view) {
             this._view.show(true);
         }
@@ -491,7 +491,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
      * Load settings from VS Code configuration
      */
     private _loadSettings(): void {
-        const config = vscode.workspace.getConfiguration('tasksync');
+        const config = vscode.workspace.getConfiguration('flowcommand');
         this._soundEnabled = config.get<boolean>('notificationSound', true);
         this._desktopNotificationEnabled = config.get<boolean>('desktopNotification', true);
         this._autoFocusPanelEnabled = config.get<boolean>('autoFocusPanel', true);
@@ -515,7 +515,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     private async _saveReusablePrompts(): Promise<void> {
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             const promptsToSave = this._reusablePrompts.map(p => ({
                 name: p.name,
                 prompt: p.prompt
@@ -665,7 +665,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         // Update session UI to reflect the cancelled entry
         this._updateCurrentSessionUI();
 
-        console.log(`[TaskSync] Pending request ${toolCallId} cancelled (Stop button)`);
+        console.log(`[FlowCommand] Pending request ${toolCallId} cancelled (Stop button)`);
     }
 
     /**
@@ -694,7 +694,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._clearProcessingTimeout();
         this._processingTimeoutId = setTimeout(() => {
             if (this._isProcessing) {
-                console.log('[TaskSync] Processing timeout - auto-clearing stuck state');
+                console.log('[FlowCommand] Processing timeout - auto-clearing stuck state');
                 this._setProcessingState(false);
                 // Send clear processing message to webview
                 this._postMessage({ type: 'clearProcessing' });
@@ -844,8 +844,8 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     public async waitForUserResponse(question: string, explicitChoices?: Array<{ label: string; value: string }>, context?: string): Promise<UserResponseResult> {
         // If view is not available, open the sidebar first
         if (!this._view) {
-            // Open the TaskSync sidebar view
-            await vscode.commands.executeCommand('taskSyncView.focus');
+            // Open the FlowCommand sidebar view
+            await vscode.commands.executeCommand('flowCommandView.focus');
 
             // Wait for view to be resolved (up to configured timeout)
             let waited = 0;
@@ -855,8 +855,8 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             }
 
             if (!this._view) {
-                console.error(`[TaskSync] Failed to open sidebar view after waiting ${this._VIEW_OPEN_TIMEOUT_MS}ms`);
-                throw new Error(`Failed to open TaskSync sidebar after ${this._VIEW_OPEN_TIMEOUT_MS}ms. The webview may not be properly initialized.`);
+                console.error(`[FlowCommand] Failed to open sidebar view after waiting ${this._VIEW_OPEN_TIMEOUT_MS}ms`);
+                throw new Error(`Failed to open FlowCommand sidebar after ${this._VIEW_OPEN_TIMEOUT_MS}ms. The webview may not be properly initialized.`);
             }
         }
 
@@ -882,7 +882,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                     oldEntry.response = '[Superseded by new request]';
                     this._updateCurrentSessionUI();
                 }
-                console.warn(`[TaskSync] Previous request ${oldToolCallId} was superseded by new request`);
+                console.warn(`[FlowCommand] Previous request ${oldToolCallId} was superseded by new request`);
             }
         }
 
@@ -1018,7 +1018,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     public async waitForMultiQuestionResponse(questions: Question[]): Promise<UserResponseResult> {
         // Input validation - prevent hangs from malformed input
         if (!questions || !Array.isArray(questions)) {
-            console.error('[TaskSync] waitForMultiQuestionResponse: invalid questions array');
+            console.error('[FlowCommand] waitForMultiQuestionResponse: invalid questions array');
             return { value: '{"error": "Invalid questions input"}', queue: false, attachments: [] };
         }
 
@@ -1041,7 +1041,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
 
         // If view is not available, open the sidebar first
         if (!this._view) {
-            await vscode.commands.executeCommand('taskSyncView.focus');
+            await vscode.commands.executeCommand('flowCommandView.focus');
 
             let waited = 0;
             while (!this._view && waited < this._VIEW_OPEN_TIMEOUT_MS) {
@@ -1050,7 +1050,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             }
 
             if (!this._view) {
-                throw new Error(`Failed to open TaskSync sidebar after ${this._VIEW_OPEN_TIMEOUT_MS}ms.`);
+                throw new Error(`Failed to open FlowCommand sidebar after ${this._VIEW_OPEN_TIMEOUT_MS}ms.`);
             }
         }
 
@@ -1392,7 +1392,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                     fs.unlinkSync(filePath);
                 }
             } catch (error) {
-                console.error('[TaskSync] Failed to cleanup temp image:', error);
+                console.error('[FlowCommand] Failed to cleanup temp image:', error);
             }
         }
     }
@@ -1727,7 +1727,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
 
             // Validate the file exists
             if (!fs.existsSync(filePath)) {
-                console.error('[TaskSync] Dropped image file does not exist:', filePath);
+                console.error('[FlowCommand] Dropped image file does not exist:', filePath);
                 return;
             }
 
@@ -1735,7 +1735,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             const ext = path.extname(filePath).toLowerCase().replace('.', '');
             const validExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
             if (!validExtensions.includes(ext)) {
-                console.error('[TaskSync] Dropped file is not an image:', filePath);
+                console.error('[FlowCommand] Dropped file is not an image:', filePath);
                 return;
             }
 
@@ -1752,7 +1752,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             // Process through existing _handleSaveImage pipeline
             await this._handleSaveImage(dataUrl, mimeType);
         } catch (error) {
-            console.error('[TaskSync] Failed to save dropped image from URI:', error);
+            console.error('[FlowCommand] Failed to save dropped image from URI:', error);
         }
     }
 
@@ -2068,7 +2068,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._soundEnabled = enabled;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('notificationSound', enabled, vscode.ConfigurationTarget.Global);
             // Reload settings after update to ensure consistency
             this._loadSettings();
@@ -2086,7 +2086,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._interactiveApprovalEnabled = enabled;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('interactiveApproval', enabled, vscode.ConfigurationTarget.Global);
             // Reload settings after update to ensure consistency
             this._loadSettings();
@@ -2104,7 +2104,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._desktopNotificationEnabled = enabled;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('desktopNotification', enabled, vscode.ConfigurationTarget.Global);
             this._loadSettings();
             this._updateSettingsUI();
@@ -2120,7 +2120,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._autoFocusPanelEnabled = enabled;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('autoFocusPanel', enabled, vscode.ConfigurationTarget.Global);
             this._loadSettings();
             this._updateSettingsUI();
@@ -2136,7 +2136,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._mobileNotificationEnabled = enabled;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('mobileNotification', enabled, vscode.ConfigurationTarget.Global);
             this._loadSettings();
             this._updateSettingsUI();
@@ -2153,10 +2153,10 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
 
         const preview = question.length > 100 ? question.substring(0, 97) + '...' : question;
         vscode.window.showInformationMessage(
-            `TaskSync: ${preview}`,
-            'Open TaskSync'
+            `FlowCommand: ${preview}`,
+            'Open FlowCommand'
         ).then(action => {
-            if (action === 'Open TaskSync' && this._view) {
+            if (action === 'Open FlowCommand' && this._view) {
                 this._view.show(true);
             }
         });
@@ -2169,7 +2169,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._instructionInjection = method;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('instructionInjection', method, vscode.ConfigurationTarget.Workspace);
             this._loadSettings();
             this._updateSettingsUI();
@@ -2179,14 +2179,14 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                     ? '.github/copilot-instructions.md'
                     : 'Code Generation settings';
                 const action = await vscode.window.showInformationMessage(
-                    `TaskSync instructions injected into ${methodLabel}. Restart the workspace window for changes to take full effect.`,
+                    `FlowCommand instructions injected into ${methodLabel}. Restart the workspace window for changes to take full effect.`,
                     'Restart Window'
                 );
                 if (action === 'Restart Window') {
                     vscode.commands.executeCommand('workbench.action.reloadWindow');
                 }
             } else {
-                vscode.window.showInformationMessage('TaskSync instructions removed.');
+                vscode.window.showInformationMessage('FlowCommand instructions removed.');
             }
         } finally {
             this._isUpdatingConfig = false;
@@ -2200,7 +2200,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         this._instructionText = text;
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             await config.update('instructionText', text, vscode.ConfigurationTarget.Workspace);
             this._loadSettings();
             this._updateSettingsUI();
@@ -2215,7 +2215,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     private async _handleResetInstructionText(): Promise<void> {
         this._isUpdatingConfig = true;
         try {
-            const config = vscode.workspace.getConfiguration('tasksync');
+            const config = vscode.workspace.getConfiguration('flowcommand');
             // Remove the workspace-level override to fall back to package.json default
             await config.update('instructionText', undefined, vscode.ConfigurationTarget.Workspace);
             this._loadSettings();
@@ -2248,7 +2248,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         if (resolved) {
             // Map 'closed' to 'cancelled' for the broadcast status (matches tool result)
             const broadcastStatus = mappedAction === 'closed' ? 'cancelled' : mappedAction;
-            console.log('[TaskSync] Plan review resolved:', reviewId, broadcastStatus);
+            console.log('[FlowCommand] Plan review resolved:', reviewId, broadcastStatus);
             // Immediately broadcast to all clients to close their modals
             // This ensures synchronization even if the main planReview() flow takes time
             this.broadcastPlanReviewCompleted(reviewId, broadcastStatus);
@@ -2264,7 +2264,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     ): void {
         const resolve = this._pendingRequests.get(requestId);
         if (!resolve) {
-            console.warn('[TaskSync] No pending request for multi-question response:', requestId);
+            console.warn('[FlowCommand] No pending request for multi-question response:', requestId);
             return;
         }
 
@@ -2463,7 +2463,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                 }))
             } as ToWebviewMessage);
         } catch (error) {
-            console.error('[TaskSync] Error searching context:', error);
+            console.error('[FlowCommand] Error searching context:', error);
             this._view?.webview.postMessage({
                 type: 'contextSearchResults',
                 suggestions: []
@@ -2519,7 +2519,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                 vscode.window.showInformationMessage(`No ${contextType} content available yet`);
             }
         } catch (error) {
-            console.error('[TaskSync] Error selecting context reference:', error);
+            console.error('[FlowCommand] Error selecting context reference:', error);
             vscode.window.showErrorMessage(`Failed to get ${contextType} content`);
         }
     }
@@ -2541,7 +2541,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             return contextRef?.content;
 
         } catch (error) {
-            console.error('[TaskSync] Error resolving context content:', error);
+            console.error('[FlowCommand] Error resolving context content:', error);
             return undefined;
         }
     }
@@ -2668,7 +2668,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
                     .slice(0, this._MAX_HISTORY_ENTRIES)
                 : [];
         } catch (error) {
-            console.error('[TaskSync] Failed to load persisted history:', error);
+            console.error('[FlowCommand] Failed to load persisted history:', error);
             this._persistedHistory = [];
         }
     }
@@ -2718,7 +2718,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             await fsPromises.writeFile(historyPath, data, 'utf8');
             this._historyDirty = false;
         } catch (error) {
-            console.error('[TaskSync] Failed to save persisted history (async):', error);
+            console.error('[FlowCommand] Failed to save persisted history (async):', error);
         }
     }
 
@@ -2748,7 +2748,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             fs.writeFileSync(historyPath, data, 'utf8');
             this._historyDirty = false;
         } catch (error) {
-            console.error('[TaskSync] Failed to save persisted history:', error);
+            console.error('[FlowCommand] Failed to save persisted history:', error);
         }
     }
 
@@ -2759,7 +2759,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'webview.js'));
         const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css'));
-        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'TS-logo.svg'));
+        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'FC-logo.svg'));
         const notificationSoundUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'notification.wav'));
         const nonce = this._getNonce();
 
@@ -2771,7 +2771,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource}; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net; media-src ${webview.cspSource} data:;">
     <link href="${codiconsUri}" rel="stylesheet">
     <link href="${styleUri}" rel="stylesheet">
-    <title>TaskSync Chat</title>
+    <title>FlowCommand Chat</title>
     <audio id="notification-sound" preload="auto" src="${notificationSoundUri}"></audio>
 </head>
 <body>
@@ -2781,7 +2781,7 @@ export class TaskSyncWebviewProvider implements vscode.WebviewViewProvider, vsco
             <!-- Welcome Section - Let's build -->
             <div class="welcome-section" id="welcome-section">
                 <div class="welcome-icon">
-                    <img src="${logoUri}" alt="TaskSync Logo" width="48" height="48" class="welcome-logo">
+                    <img src="${logoUri}" alt="FlowCommand Logo" width="48" height="48" class="welcome-logo">
                 </div>
                 <h1 class="welcome-title">Let's build</h1>
                 <p class="welcome-subtitle">Sync your tasks, automate your workflow</p>

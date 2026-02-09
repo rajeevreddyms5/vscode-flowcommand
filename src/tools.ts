@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { TaskSyncWebviewProvider } from './webview/webviewProvider';
+import { FlowCommandWebviewProvider } from './webview/webviewProvider';
 import { getImageMimeType } from './utils/imageUtils';
 
 // Types for ask_questions/multi-question mode
@@ -83,7 +83,7 @@ function createCancellationPromise(token: vscode.CancellationToken): {
  */
 export async function askUser(
     params: Input,
-    provider: TaskSyncWebviewProvider,
+    provider: FlowCommandWebviewProvider,
     token: vscode.CancellationToken
 ): Promise<AskUserToolResult> {
     // Check if already cancelled before starting
@@ -197,9 +197,9 @@ export async function askUser(
             throw error;
         }
         // Log other errors
-        console.error('[TaskSync] askUser error:', error instanceof Error ? error.message : error);
+        console.error('[FlowCommand] askUser error:', error instanceof Error ? error.message : error);
         // Show error to user so they know something went wrong
-        vscode.window.showErrorMessage(`TaskSync: ${error instanceof Error ? error.message : 'Failed to show question'}`);
+        vscode.window.showErrorMessage(`FlowCommand: ${error instanceof Error ? error.message : 'Failed to show question'}`);
         return {
             response: '',
             attachments: []
@@ -210,7 +210,7 @@ export async function askUser(
     }
 }
 
-export function registerTools(context: vscode.ExtensionContext, provider: TaskSyncWebviewProvider) {
+export function registerTools(context: vscode.ExtensionContext, provider: FlowCommandWebviewProvider) {
 
     // Register ask_user tool (VS Code native LM tool)
     const askUserTool = vscode.lm.registerTool('ask_user', {
@@ -238,7 +238,7 @@ export function registerTools(context: vscode.ExtensionContext, provider: TaskSy
 
                             // Check if file exists
                             if (!fs.existsSync(filePath)) {
-                                console.error('[TaskSync] Attachment file does not exist:', filePath);
+                                console.error('[FlowCommand] Attachment file does not exist:', filePath);
                                 return null;
                             }
 
@@ -252,7 +252,7 @@ export function registerTools(context: vscode.ExtensionContext, provider: TaskSy
                             }
                             return null;
                         } catch (error) {
-                            console.error('[TaskSync] Failed to read image attachment:', error);
+                            console.error('[FlowCommand] Failed to read image attachment:', error);
                             return null;
                         }
                     });

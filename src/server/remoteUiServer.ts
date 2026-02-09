@@ -32,7 +32,7 @@ export interface RemoteState {
 }
 
 /**
- * RemoteUiServer - Serves the TaskSync UI to browsers/mobile devices
+ * RemoteUiServer - Serves the FlowCommand UI to browsers/mobile devices
  * Provides identical functionality to the VS Code webview
  */
 export class RemoteUiServer implements vscode.Disposable {
@@ -79,16 +79,16 @@ export class RemoteUiServer implements vscode.Disposable {
      * The same PIN is used across VS Code restarts
      */
     private _getOrCreatePersistentPin(): string {
-        const storedPin = this._context.globalState.get<string>('tasksync_remote_pin');
+        const storedPin = this._context.globalState.get<string>('flowcommand_remote_pin');
         if (storedPin) {
-            console.log('[TaskSync Remote] Using stored PIN');
+            console.log('[FlowCommand Remote] Using stored PIN');
             return storedPin;
         }
         
         // Generate new PIN and store it
         const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-        this._context.globalState.update('tasksync_remote_pin', newPin);
-        console.log('[TaskSync Remote] Generated new persistent PIN');
+        this._context.globalState.update('flowcommand_remote_pin', newPin);
+        console.log('[FlowCommand Remote] Generated new persistent PIN');
         return newPin;
     }
 
@@ -212,11 +212,11 @@ export class RemoteUiServer implements vscode.Disposable {
     public async start(preferredPort?: number): Promise<number> {
         // If already running, return current port
         if (this._server !== null) {
-            console.log('[TaskSync Remote] Server already running on port', this._port);
+            console.log('[FlowCommand Remote] Server already running on port', this._port);
             return this._port;
         }
 
-        const config = vscode.workspace.getConfiguration('tasksync');
+        const config = vscode.workspace.getConfiguration('flowcommand');
         const configPort = config.get<number>('remotePort', 3000);
         const startPort = preferredPort ?? configPort;
 
@@ -234,13 +234,13 @@ export class RemoteUiServer implements vscode.Disposable {
                         this._registerSession();
                         
                         const info = this.getConnectionInfo();
-                        console.log(`[TaskSync Remote] Server started on port ${this._port}`);
-                        console.log(`[TaskSync Remote] PIN: ${this._pin}`);
-                        console.log(`[TaskSync Remote] URLs: ${info.urls.join(', ')}`);
+                        console.log(`[FlowCommand Remote] Server started on port ${this._port}`);
+                        console.log(`[FlowCommand Remote] PIN: ${this._pin}`);
+                        console.log(`[FlowCommand Remote] URLs: ${info.urls.join(', ')}`);
                         
                         resolve(this._port);
                     } catch (setupErr) {
-                        console.error('[TaskSync Remote] Setup error:', setupErr);
+                        console.error('[FlowCommand Remote] Setup error:', setupErr);
                         // Clean up on setup failure
                         this.stop();
                         reject(setupErr);
@@ -248,7 +248,7 @@ export class RemoteUiServer implements vscode.Disposable {
                 });
 
                 this._server.on('error', (err) => {
-                    console.error('[TaskSync Remote] Server error:', err);
+                    console.error('[FlowCommand Remote] Server error:', err);
                     this._server = null;
                     reject(err);
                 });
@@ -340,14 +340,14 @@ export class RemoteUiServer implements vscode.Disposable {
                                 }
                             } catch (err) {
                                 // Don't let debug tracking errors crash the extension
-                                console.error('[TaskSync Remote] Debug tracker error:', err);
+                                console.error('[FlowCommand Remote] Debug tracker error:', err);
                             }
                         }
                     };
                 }
             });
         } catch (err) {
-            console.error('[TaskSync Remote] Failed to setup debug tracker:', err);
+            console.error('[FlowCommand Remote] Failed to setup debug tracker:', err);
         }
     }
 
@@ -379,7 +379,7 @@ export class RemoteUiServer implements vscode.Disposable {
                         content: e.document.getText()
                     });
                 } catch (err) {
-                    console.error('[TaskSync Remote] File change watcher error:', err);
+                    console.error('[FlowCommand Remote] File change watcher error:', err);
                 }
             });
 
@@ -398,7 +398,7 @@ export class RemoteUiServer implements vscode.Disposable {
                     }
                 }
             } catch (err) {
-                console.error('[TaskSync Remote] File create watcher error:', err);
+                console.error('[FlowCommand Remote] File create watcher error:', err);
             }
         });
 
@@ -417,7 +417,7 @@ export class RemoteUiServer implements vscode.Disposable {
                     }
                 }
             } catch (err) {
-                console.error('[TaskSync Remote] File delete watcher error:', err);
+                console.error('[FlowCommand Remote] File delete watcher error:', err);
             }
         });
 
@@ -438,13 +438,13 @@ export class RemoteUiServer implements vscode.Disposable {
                     }
                 }
             } catch (err) {
-                console.error('[TaskSync Remote] File rename watcher error:', err);
+                console.error('[FlowCommand Remote] File rename watcher error:', err);
             }
         });
 
             this._fileWatchers.push(changeWatcher, createWatcher, deleteWatcher, renameWatcher);
         } catch (err) {
-            console.error('[TaskSync Remote] Failed to setup file watchers:', err);
+            console.error('[FlowCommand Remote] Failed to setup file watchers:', err);
         }
     }
 
@@ -467,7 +467,7 @@ export class RemoteUiServer implements vscode.Disposable {
                         terminals: this._getTerminalList()
                     });
                 } catch (err) {
-                    console.error('[TaskSync Remote] Terminal open watcher error:', err);
+                    console.error('[FlowCommand Remote] Terminal open watcher error:', err);
                 }
             });
 
@@ -480,7 +480,7 @@ export class RemoteUiServer implements vscode.Disposable {
                         terminals: this._getTerminalList()
                     });
                 } catch (err) {
-                    console.error('[TaskSync Remote] Terminal close watcher error:', err);
+                    console.error('[FlowCommand Remote] Terminal close watcher error:', err);
                 }
             });
 
@@ -494,13 +494,13 @@ export class RemoteUiServer implements vscode.Disposable {
                         activeTerminalId: index
                     });
                 } catch (err) {
-                    console.error('[TaskSync Remote] Terminal active watcher error:', err);
+                    console.error('[FlowCommand Remote] Terminal active watcher error:', err);
                 }
             });
 
             this._terminalWatchers.push(openWatcher, closeWatcher, activeWatcher);
         } catch (err) {
-            console.error('[TaskSync Remote] Failed to setup terminal watchers:', err);
+            console.error('[FlowCommand Remote] Failed to setup terminal watchers:', err);
         }
     }
 
@@ -519,27 +519,27 @@ export class RemoteUiServer implements vscode.Disposable {
         });
 
         this._io.on('connection', (socket: Socket) => {
-            console.log('[TaskSync Remote] Client connected:', socket.id);
+            console.log('[FlowCommand Remote] Client connected:', socket.id);
 
             // Handle authentication
             socket.on('authenticate', (data: { pin: string }) => {
-                console.log('[TaskSync Remote] Auth attempt with PIN:', data.pin, 'Expected:', this._pin);
+                console.log('[FlowCommand Remote] Auth attempt with PIN:', data.pin, 'Expected:', this._pin);
                 if (data.pin === this._pin) {
                     this._authenticatedSockets.add(socket.id);
                     socket.emit('authenticated', { success: true });
-                    console.log('[TaskSync Remote] Socket authenticated:', socket.id);
+                    console.log('[FlowCommand Remote] Socket authenticated:', socket.id);
                     
                     // Send initial state
                     if (this._getStateCallback) {
                         const state = this._getStateCallback();
-                        console.log('[TaskSync Remote] Sending initial state:', JSON.stringify(state).substring(0, 200));
+                        console.log('[FlowCommand Remote] Sending initial state:', JSON.stringify(state).substring(0, 200));
                         socket.emit('initialState', state);
                     } else {
-                        console.log('[TaskSync Remote] No getStateCallback registered!');
+                        console.log('[FlowCommand Remote] No getStateCallback registered!');
                     }
                 } else {
                     socket.emit('authenticated', { success: false, message: 'Invalid PIN' });
-                    console.log('[TaskSync Remote] Auth failed for:', socket.id);
+                    console.log('[FlowCommand Remote] Auth failed for:', socket.id);
                 }
             });
 
@@ -558,7 +558,7 @@ export class RemoteUiServer implements vscode.Disposable {
             });
 
             socket.on('disconnect', () => {
-                console.log('[TaskSync Remote] Client disconnected:', socket.id);
+                console.log('[FlowCommand Remote] Client disconnected:', socket.id);
                 this._authenticatedSockets.delete(socket.id);
             });
 
@@ -776,10 +776,10 @@ export class RemoteUiServer implements vscode.Disposable {
      */
     public broadcast(message: RemoteMessage): void {
         if (!this._io) {
-            console.log('[TaskSync Remote] broadcast: No io instance');
+            console.log('[FlowCommand Remote] broadcast: No io instance');
             return;
         }
-        console.log('[TaskSync Remote] Broadcasting to', this._authenticatedSockets.size, 'clients:', message.type);
+        console.log('[FlowCommand Remote] Broadcasting to', this._authenticatedSockets.size, 'clients:', message.type);
         for (const socketId of this._authenticatedSockets) {
             this._io.to(socketId).emit('message', message);
         }
@@ -828,27 +828,27 @@ export class RemoteUiServer implements vscode.Disposable {
             pin: this._pin
         };
 
-        const sessions = this._context.globalState.get<SessionInfo[]>('tasksync.remoteSessions', []);
+        const sessions = this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
         // Remove any stale sessions for this workspace/port
         const filtered = sessions.filter(s => s.port !== this._port);
         filtered.push(session);
-        this._context.globalState.update('tasksync.remoteSessions', filtered);
+        this._context.globalState.update('flowcommand.remoteSessions', filtered);
     }
 
     /**
      * Unregister this session from globalState
      */
     private _unregisterSession(): void {
-        const sessions = this._context.globalState.get<SessionInfo[]>('tasksync.remoteSessions', []);
+        const sessions = this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
         const filtered = sessions.filter(s => s.id !== this._sessionId);
-        this._context.globalState.update('tasksync.remoteSessions', filtered);
+        this._context.globalState.update('flowcommand.remoteSessions', filtered);
     }
 
     /**
      * Get all registered sessions
      */
     private _getAllSessions(): SessionInfo[] {
-        return this._context.globalState.get<SessionInfo[]>('tasksync.remoteSessions', []);
+        return this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
     }
 
     /**
@@ -879,9 +879,9 @@ export class RemoteUiServer implements vscode.Disposable {
      */
     private _getManifest(): object {
         return {
-            name: 'TaskSync Remote',
-            short_name: 'TaskSync',
-            description: 'Control your VS Code TaskSync from anywhere',
+            name: 'FlowCommand Remote',
+            short_name: 'FlowCommand',
+            description: 'Control your VS Code FlowCommand from anywhere',
             start_url: '/',
             scope: '/',
             display: 'standalone',
@@ -890,18 +890,18 @@ export class RemoteUiServer implements vscode.Disposable {
             theme_color: '#007acc',
             icons: [
                 {
-                    src: '/media/TS-logo.svg',
+                    src: '/media/FC-logo.svg',
                     sizes: 'any',
                     type: 'image/svg+xml',
                     purpose: 'any maskable'
                 },
                 {
-                    src: '/media/TS-logo.svg',
+                    src: '/media/FC-logo.svg',
                     sizes: '192x192',
                     type: 'image/svg+xml'
                 },
                 {
-                    src: '/media/TS-logo.svg',
+                    src: '/media/FC-logo.svg',
                     sizes: '512x512',
                     type: 'image/svg+xml'
                 }
@@ -914,14 +914,14 @@ export class RemoteUiServer implements vscode.Disposable {
      */
     private _getServiceWorker(): string {
         return `
-const CACHE_NAME = 'tasksync-remote-v1';
+const CACHE_NAME = 'flowcommand-remote-v1';
 const ASSETS = [
     '/app',
     '/manifest.json',
     '/media/codicon.css',
     '/media/main.css',
     '/media/webview.js',
-    '/media/TS-logo.svg'
+    '/media/FC-logo.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -968,7 +968,7 @@ self.addEventListener('fetch', event => {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1e1e1e" id="theme-color-meta">
     <link rel="manifest" href="/manifest.json">
-    <title>TaskSync Remote</title>
+    <title>FlowCommand Remote</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1156,8 +1156,8 @@ self.addEventListener('fetch', event => {
 <body>
     <div class="container">
         <div class="logo">
-            <img src="/media/TS-logo.svg" alt="TaskSync">
-            <h1>TaskSync Remote</h1>
+            <img src="/media/FC-logo.svg" alt="FlowCommand">
+            <h1>FlowCommand Remote</h1>
             <p>Control your VS Code from anywhere</p>
         </div>
         
@@ -1200,7 +1200,7 @@ self.addEventListener('fetch', event => {
         ` : ''}
         
         <p class="help-text">
-            Find the PIN in VS Code's Output panel → <code>TaskSync Remote</code>
+            Find the PIN in VS Code's Output panel → <code>FlowCommand Remote</code>
         </p>
     </div>
     
@@ -1217,14 +1217,14 @@ self.addEventListener('fetch', event => {
         if (hasError) {
             // Clear saved PIN since it was invalid
             try {
-                localStorage.removeItem('tasksync_pin');
+                localStorage.removeItem('flowcommand_pin');
             } catch (e) {}
             errorDiv.textContent = 'Invalid PIN. Please try again.';
             errorDiv.style.display = 'block';
         } else {
             // Try to auto-redirect with saved PIN from PWA mode
             try {
-                const savedPin = localStorage.getItem('tasksync_pin');
+                const savedPin = localStorage.getItem('flowcommand_pin');
                 if (savedPin && savedPin.length === 4) {
                     // Redirect to app with saved PIN
                     window.location.href = '/app?pin=' + savedPin;
@@ -1300,7 +1300,7 @@ self.addEventListener('fetch', event => {
             webviewJs = fs.readFileSync(webviewJsPath, 'utf8');
             mainCss = fs.readFileSync(mainCssPath, 'utf8');
         } catch (err) {
-            console.error('[TaskSync Remote] Failed to read media files:', err);
+            console.error('[FlowCommand Remote] Failed to read media files:', err);
         }
 
         // CSS variable fallbacks for browser (VS Code provides these in webview)
@@ -1376,12 +1376,12 @@ self.addEventListener('fetch', event => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TaskSync">
+    <meta name="apple-mobile-web-app-title" content="FlowCommand">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1e1e1e">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/media/TS-logo.svg">
-    <title>TaskSync Remote</title>
+    <link rel="apple-touch-icon" href="/media/FC-logo.svg">
+    <title>FlowCommand Remote</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -2262,7 +2262,7 @@ self.addEventListener('fetch', event => {
     <!--Remote Header -->
     <div class="remote-header">
         <div class="remote-header-left">
-            <span class="remote-header-title">TaskSync</span>
+            <span class="remote-header-title">FlowCommand</span>
         </div>
         <div class="remote-header-actions">
             <button class="remote-header-btn" id="notification-permission-btn" title="Enable Notifications" style="display:none;">
@@ -2304,7 +2304,7 @@ self.addEventListener('fetch', event => {
             <!-- Welcome Section -->
             <div class="welcome-section" id="welcome-section">
                 <div class="welcome-icon">
-                    <img src="/media/TS-logo.svg" alt="TaskSync Logo" width="48" height="48" class="welcome-logo">
+                    <img src="/media/FC-logo.svg" alt="FlowCommand Logo" width="48" height="48" class="welcome-logo">
                 </div>
                 <h1 class="welcome-title">Let's build</h1>
                 <p class="welcome-subtitle">Sync your tasks, automate your workflow</p>
@@ -2522,7 +2522,7 @@ self.addEventListener('fetch', event => {
         let PIN = new URLSearchParams(window.location.search).get('pin') || '';
         if (!PIN) {
             try {
-                PIN = localStorage.getItem('tasksync_pin') || '';
+                PIN = localStorage.getItem('flowcommand_pin') || '';
             } catch (e) {}
         }
         
@@ -2562,7 +2562,7 @@ self.addEventListener('fetch', event => {
         window.acquireVsCodeApi = function() {
             return {
                 postMessage: function(message) {
-                    console.log('[TaskSync Remote] postMessage:', message.type);
+                    console.log('[FlowCommand Remote] postMessage:', message.type);
                     if (isConnected && socket) {
                         socket.emit('message', message);
                     } else {
@@ -2575,7 +2575,7 @@ self.addEventListener('fetch', event => {
                 setState: function(state) {
                     vscodeState = state;
                     try {
-                        localStorage.setItem('tasksync_state', JSON.stringify(state));
+                        localStorage.setItem('flowcommand_state', JSON.stringify(state));
                     } catch (e) {}
                 }
             };
@@ -2583,7 +2583,7 @@ self.addEventListener('fetch', event => {
         
         // Restore state from localStorage
         try {
-            const saved = localStorage.getItem('tasksync_state');
+            const saved = localStorage.getItem('flowcommand_state');
             if (saved) vscodeState = JSON.parse(saved);
         } catch (e) {}
         
@@ -2594,7 +2594,7 @@ self.addEventListener('fetch', event => {
         function requestNotificationPermission() {
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission().then(function(permission) {
-                    console.log('[TaskSync] Notification permission:', permission);
+                    console.log('[FlowCommand] Notification permission:', permission);
                     updateNotificationButton();
                 });
             }
@@ -2668,7 +2668,7 @@ self.addEventListener('fetch', event => {
         }
         
         function showMobileNotification(prompt) {
-            console.log('[TaskSync] showMobileNotification called with:', prompt.substring(0, 50));
+            console.log('[FlowCommand] showMobileNotification called with:', prompt.substring(0, 50));
             
             // Check if native notifications are available and granted
             const nativeNotificationsAvailable = ('Notification' in window) && Notification.permission === 'granted';
@@ -2677,11 +2677,11 @@ self.addEventListener('fetch', event => {
                 // Use native notifications
                 var preview = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
                 try {
-                    console.log('[TaskSync] Showing native browser notification');
-                    var notification = new Notification('TaskSync', {
+                    console.log('[FlowCommand] Showing native browser notification');
+                    var notification = new Notification('FlowCommand', {
                         body: preview,
-                        icon: '/media/TS-logo.svg',
-                        tag: 'tasksync-pending',
+                        icon: '/media/FC-logo.svg',
+                        tag: 'flowcommand-pending',
                         requireInteraction: true,
                         silent: false
                     });
@@ -2691,12 +2691,12 @@ self.addEventListener('fetch', event => {
                     };
                     setTimeout(function() { notification.close(); }, 30000);
                 } catch (e) {
-                    console.error('[TaskSync] Native notification error, falling back to visual:', e);
+                    console.error('[FlowCommand] Native notification error, falling back to visual:', e);
                     showVisualNotification(prompt);
                 }
             } else {
                 // Fallback to visual toast
-                console.log('[TaskSync] Using visual toast notification (native not available/granted)');
+                console.log('[FlowCommand] Using visual toast notification (native not available/granted)');
                 showVisualNotification(prompt);
             }
         }
@@ -2718,7 +2718,7 @@ self.addEventListener('fetch', event => {
                 var metaTheme = document.querySelector('meta[name="theme-color"]');
                 if (metaTheme) metaTheme.setAttribute('content', '#1e1e1e');
             }
-            console.log('[TaskSync] Theme applied:', theme);
+            console.log('[FlowCommand] Theme applied:', theme);
         }
         
         // Connection status UI
@@ -2742,26 +2742,26 @@ self.addEventListener('fetch', event => {
                 // Socket.IO server automatically serves its client at /socket.io/socket.io.js
                 script.src = '/socket.io/socket.io.js';
                 script.onload = () => {
-                    console.log('[TaskSync] Socket.io loaded from server');
+                    console.log('[FlowCommand] Socket.io loaded from server');
                     initSocket();
                 };
                 script.onerror = () => {
-                    console.error('[TaskSync Remote] Failed to load Socket.io from server');
+                    console.error('[FlowCommand Remote] Failed to load Socket.io from server');
                     updateConnectionStatus('disconnected', '<span class="codicon codicon-error"></span> Failed to load Socket.io');
                 };
                 document.head.appendChild(script);
             } else {
-                console.log('[TaskSync] Socket.io already loaded');
+                console.log('[FlowCommand] Socket.io already loaded');
                 initSocket();
             }
         }
         
         function initSocket() {
-            console.log('[TaskSync] initSocket called, PIN:', PIN);
+            console.log('[FlowCommand] initSocket called, PIN:', PIN);
             
             // Check if io is defined
             if (typeof io === 'undefined') {
-                console.error('[TaskSync] Socket.io not loaded!');
+                console.error('[FlowCommand] Socket.io not loaded!');
                 updateConnectionStatus('disconnected', '<span class="codicon codicon-error"></span> Socket.io failed to load');
                 return;
             }
@@ -2776,18 +2776,18 @@ self.addEventListener('fetch', event => {
                 forceNew: true
             });
             
-            console.log('[TaskSync] Socket created, waiting for connect event...');
+            console.log('[FlowCommand] Socket created, waiting for connect event...');
             
             // Add connection timeout for better mobile feedback
             var connectTimeout = setTimeout(function() {
                 if (!socket.connected) {
-                    console.error('[TaskSync] Connection timeout');
+                    console.error('[FlowCommand] Connection timeout');
                     updateConnectionStatus('disconnected', '<span class="codicon codicon-error"></span> Connection timeout. Check network.');
                 }
             }, 15000);
             
             socket.on('connect', () => {
-                console.log('[TaskSync] Socket connected, sending authenticate...');
+                console.log('[FlowCommand] Socket connected, sending authenticate...');
                 clearTimeout(connectTimeout);
                 reconnectAttempts = 0;  // Reset on successful connection
                 clearReconnectTimer();  // Clear any reconnect timer
@@ -2796,14 +2796,14 @@ self.addEventListener('fetch', event => {
             });
             
             socket.on('connect_error', (err) => {
-                console.error('[TaskSync] Socket connect_error:', err.message);
+                console.error('[FlowCommand] Socket connect_error:', err.message);
                 reconnectAttempts++;
                 updateConnectionStatus('disconnected', '<span class="codicon codicon-loading codicon-modifier-spin"></span> Reconnecting... (' + reconnectAttempts + ')');
                 startReconnectTimer();  // Start timer for reload option
             });
             
             socket.on('authenticated', (data) => {
-                console.log('[TaskSync] Authenticated response:', data);
+                console.log('[FlowCommand] Authenticated response:', data);
                 lastSuccessTime = Date.now();  // Track successful connection
                 if (data.success) {
                     isConnected = true;
@@ -2812,7 +2812,7 @@ self.addEventListener('fetch', event => {
                     
                     // Save PIN for PWA (Add to Home Screen)
                     try {
-                        localStorage.setItem('tasksync_pin', PIN);
+                        localStorage.setItem('flowcommand_pin', PIN);
                     } catch (e) {}
                     
                     // Flush message queue
@@ -2834,7 +2834,7 @@ self.addEventListener('fetch', event => {
                     updateConnectionStatus('disconnected', '<span class="codicon codicon-error"></span> Invalid PIN');
                     // Clear saved PIN since it's invalid
                     try {
-                        localStorage.removeItem('tasksync_pin');
+                        localStorage.removeItem('flowcommand_pin');
                     } catch (e) {}
                     setTimeout(() => {
                         window.location.href = '/?error=invalid_pin';
@@ -2843,7 +2843,7 @@ self.addEventListener('fetch', event => {
             });
             
             socket.on('initialState', (state) => {
-                console.log('[TaskSync] Received initial state');
+                console.log('[FlowCommand] Received initial state');
                 lastSuccessTime = Date.now();  // Track successful message
                 
                 // Apply theme from VS Code
@@ -2883,7 +2883,7 @@ self.addEventListener('fetch', event => {
             });
             
             socket.on('message', (message) => {
-                console.log('[TaskSync] Received message:', message.type);
+                console.log('[FlowCommand] Received message:', message.type);
                 
                 // Handle theme updates
                 if (message.type === 'updateTheme' && message.theme) {
@@ -2912,7 +2912,7 @@ self.addEventListener('fetch', event => {
             
             socket.on('disconnect', (reason) => {
                 isConnected = false;
-                console.log('[TaskSync] Disconnected:', reason);
+                console.log('[FlowCommand] Disconnected:', reason);
                 updateConnectionStatus('disconnected', '<span class="codicon codicon-loading codicon-modifier-spin"></span> Disconnected. Reconnecting...');
             });
             
@@ -3261,9 +3261,9 @@ self.addEventListener('fetch', event => {
             if (!cmd) return;
             
             navigator.clipboard.writeText(cmd).then(() => {
-                console.log('[TaskSync] Command copied to clipboard');
+                console.log('[FlowCommand] Command copied to clipboard');
             }).catch(err => {
-                console.error('[TaskSync] Failed to copy:', err);
+                console.error('[FlowCommand] Failed to copy:', err);
             });
         };
         
@@ -3396,7 +3396,7 @@ self.addEventListener('fetch', event => {
         document.getElementById('remote-logout-btn')?.addEventListener('click', () => {
             // Clear saved PIN on logout
             try {
-                localStorage.removeItem('tasksync_pin');
+                localStorage.removeItem('flowcommand_pin');
             } catch (e) {}
             if (socket) socket.disconnect();
             window.location.href = '/';
@@ -3423,7 +3423,7 @@ self.addEventListener('fetch', event => {
             
             // Save theme preference
             try {
-                localStorage.setItem('tasksync_theme', isLight ? 'light' : 'dark');
+                localStorage.setItem('flowcommand_theme', isLight ? 'light' : 'dark');
             } catch (e) {}
             
             // Update meta theme-color
@@ -3435,7 +3435,7 @@ self.addEventListener('fetch', event => {
         
         // Restore saved theme
         try {
-            const savedTheme = localStorage.getItem('tasksync_theme');
+            const savedTheme = localStorage.getItem('flowcommand_theme');
             if (savedTheme === 'light') {
                 document.body.classList.add('light-theme');
                 const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -3448,18 +3448,18 @@ self.addEventListener('fetch', event => {
         // Register service worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(err => {
-                console.log('[TaskSync] SW registration failed:', err);
+                console.log('[FlowCommand] SW registration failed:', err);
             });
         }
         
         // Handle page visibility changes (for mobile browser/PWA wake-up)
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                console.log('[TaskSync] Page became visible, checking connection...');
+                console.log('[FlowCommand] Page became visible, checking connection...');
                 
                 // Only reconnect if actually disconnected
                 if (socket && !socket.connected) {
-                    console.log('[TaskSync] Socket disconnected, reconnecting...');
+                    console.log('[FlowCommand] Socket disconnected, reconnecting...');
                     updateConnectionStatus('connecting', '<span class="codicon codicon-loading codicon-modifier-spin"></span> Reconnecting...');
                     socket.connect();
                 }
@@ -3468,7 +3468,7 @@ self.addEventListener('fetch', event => {
         
         // Also handle online/offline events
         window.addEventListener('online', () => {
-            console.log('[TaskSync] Network online, reconnecting...');
+            console.log('[FlowCommand] Network online, reconnecting...');
             if (socket) {
                 socket.disconnect();
                 setTimeout(() => socket.connect(), 500);

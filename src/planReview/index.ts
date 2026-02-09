@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { PlanReviewInput, PlanReviewToolResult, PlanReviewPanelResult } from './types';
-import { TaskSyncWebviewProvider } from '../webview/webviewProvider';
+import { FlowCommandWebviewProvider } from '../webview/webviewProvider';
 import { PlanReviewPanel } from './planReviewPanel';
 
 /**
@@ -42,7 +42,7 @@ export async function planReview(
     params: PlanReviewInput,
     extensionUri: vscode.Uri,
     token: vscode.CancellationToken,
-    webviewProvider?: TaskSyncWebviewProvider
+    webviewProvider?: FlowCommandWebviewProvider
 ): Promise<PlanReviewToolResult> {
     // Check if already cancelled
     if (token.isCancellationRequested) {
@@ -55,7 +55,7 @@ export async function planReview(
 
     // Set up cancellation handling
     const cancellationDisposable = token.onCancellationRequested(() => {
-        console.log('[TaskSync] planReview cancelled by agent:', reviewId);
+        console.log('[FlowCommand] planReview cancelled by agent:', reviewId);
         // Clean up pending review
         const resolve = pendingReviews.get(reviewId);
         if (resolve) {
@@ -130,7 +130,7 @@ export async function planReview(
 
         return toolResult;
     } catch (error) {
-        console.error('[TaskSync] Error in plan review:', error);
+        console.error('[FlowCommand] Error in plan review:', error);
         return {
             status: 'cancelled',
             requiredRevisions: [],
@@ -148,7 +148,7 @@ export async function planReview(
  */
 export function registerPlanReviewTool(
     context: vscode.ExtensionContext,
-    webviewProvider?: TaskSyncWebviewProvider
+    webviewProvider?: FlowCommandWebviewProvider
 ): vscode.Disposable {
     const planReviewTool = vscode.lm.registerTool('plan_review', {
         async invoke(

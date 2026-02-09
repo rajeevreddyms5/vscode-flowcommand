@@ -282,20 +282,38 @@ export class RemoteUiServer implements vscode.Disposable {
     }
 
     /**
-     * Check if a port is available (non-blocking)
+     * Check if a port is available (non-blocking with timeout)
      */
     private _isPortAvailable(port: number): Promise<boolean> {
         return new Promise((resolve) => {
             const testServer = http.createServer();
+            let resolved = false;
             
+            // Timeout after 5 seconds to prevent hanging
+            const timeout = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    testServer.close(() => {});
+                    resolve(false); // Assume unavailable on timeout
+                }
+            }, 5000);
+
             testServer.once('error', () => {
-                resolve(false);
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeout);
+                    resolve(false);
+                }
             });
             
             testServer.once('listening', () => {
-                testServer.close(() => {
-                    resolve(true);
-                });
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeout);
+                    testServer.close(() => {
+                        resolve(true);
+                    });
+                }
             });
             
             testServer.listen(port, '0.0.0.0');

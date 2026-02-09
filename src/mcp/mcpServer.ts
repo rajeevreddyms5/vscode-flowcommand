@@ -272,11 +272,30 @@ export class McpServerManager {
     private async tryPort(port: number): Promise<number> {
         return new Promise((resolve) => {
             const testServer = http.createServer();
+            let resolved = false;
+
+            // Timeout after 5 seconds to prevent hanging
+            const timeout = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    testServer.close(() => {});
+                    this.findAvailablePort().then(resolve);
+                }
+            }, 5000);
+
             testServer.once('error', () => {
-                this.findAvailablePort().then(resolve);
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeout);
+                    this.findAvailablePort().then(resolve);
+                }
             });
             testServer.listen(port, '127.0.0.1', () => {
-                testServer.close(() => resolve(port));
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeout);
+                    testServer.close(() => resolve(port));
+                }
             });
         });
     }

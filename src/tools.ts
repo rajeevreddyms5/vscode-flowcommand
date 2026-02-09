@@ -3,18 +3,7 @@ import * as fs from 'fs';
 import { TaskSyncWebviewProvider } from './webview/webviewProvider';
 import { getImageMimeType } from './utils/imageUtils';
 
-export interface Input {
-    question: string;
-    context?: string;
-    choices?: Array<{ label: string; value: string }>;
-}
-
-export interface AskUserToolResult {
-    response: string;
-    attachments: string[];
-}
-
-// Types for ask_questions tool
+// Types for ask_questions/multi-question mode
 export interface QuestionOption {
     label: string;
     description?: string;
@@ -29,8 +18,18 @@ export interface Question {
     allowFreeformInput?: boolean;
 }
 
-export interface AskQuestionsInput {
-    questions: Question[];
+export interface Input {
+    // Single question mode (original ask_user)
+    question?: string;
+    context?: string;
+    choices?: Array<{ label: string; value: string }>;
+    // Multi-question mode (ask_questions functionality)
+    questions?: Question[];
+}
+
+export interface AskUserToolResult {
+    response: string;
+    attachments: string[];
 }
 
 export interface QuestionAnswer {
@@ -80,6 +79,7 @@ function createCancellationPromise(token: vscode.CancellationToken): {
 /**
  * Core logic to ask user, reusable by MCP server
  * Queue handling and history tracking is done in waitForUserResponse()
+ * Supports both single question mode and multi-question mode (ask_questions)
  */
 export async function askUser(
     params: Input,
@@ -95,9 +95,33 @@ export async function askUser(
     const cancellation = createCancellationPromise(token);
 
     try {
+        // Detect multi-question mode (ask_questions functionality)
+        if (params.questions && params.questions.length > 0) {
+            // Multi-question mode: show all questions in a form
+            const result = await Promise.race([
+                provider.waitForMultiQuestionResponse(params.questions),
+                cancellation.promise
+            ]);
+
+            // Handle cancellation
+            if (result.cancelled) {
+                return {
+                    response: result.value,
+                    attachments: []
+                };
+            }
+
+            // Return the multi-question response (already JSON formatted by provider)
+            return {
+                response: result.value,
+                attachments: []
+            };
+        }
+
+        // Single question mode (original ask_user behavior)
         // Race the user response against cancellation
         const result = await Promise.race([
-            provider.waitForUserResponse(params.question, params.choices, params.context),
+            provider.waitForUserResponse(params.question || '', params.choices, params.context),
             cancellation.promise
         ]);
 

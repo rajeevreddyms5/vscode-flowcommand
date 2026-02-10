@@ -3255,21 +3255,30 @@ button#send-btn:disabled {
 
 /* Landscape mode on mobile: ensure footer buttons are visible */
 @media (max-height: 500px) and (orientation: landscape) {
+    .plan-review-modal {
+        height: 100%;
+        max-height: 100%;
+    }
     .plan-review-content {
         flex-direction: row;
+        flex: 1;
+        min-height: 0;
     }
     .plan-review-body {
         min-height: unset;
         flex: 1;
         max-height: none;
+        overflow-y: auto;
     }
     .plan-review-sidebar {
         max-height: none;
         flex: 0 0 180px;
         min-width: 180px;
+        overflow-y: auto;
     }
     .plan-review-footer {
         padding: 6px 12px;
+        flex-shrink: 0;
     }
     .plan-review-footer .form-btn {
         padding: 4px 10px;

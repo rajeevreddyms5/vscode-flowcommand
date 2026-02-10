@@ -1474,26 +1474,135 @@ self.addEventListener('fetch', event => {
             z-index: 100;
         }
         
-        /* Autocomplete dropdown background fix for remote UI */
+        /* ── File Autocomplete (#) dropdown ── */
         .autocomplete-dropdown {
-            background-color: var(--vscode-editorWidget-background, #252526);
-            backdrop-filter: blur(8px);
-            opacity: 1;
-            border: 1px solid var(--vscode-editorWidget-border, #454545);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            background: #252526;
+            border: 1px solid #454545;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            overflow: hidden;
+            z-index: 1000;
         }
-        
         .autocomplete-list {
-            background-color: var(--vscode-editorWidget-background, #252526);
+            max-height: 180px;
+            overflow-y: auto;
         }
-        
         .autocomplete-item {
-            background-color: var(--vscode-editorWidget-background, #252526);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: #cccccc;
+            transition: background-color 0.1s ease;
         }
-        
         .autocomplete-item:hover,
         .autocomplete-item.selected {
-            background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+            background: #094771;
+        }
+        .autocomplete-item-icon {
+            display: flex;
+            align-items: center;
+            color: #9d9d9d;
+        }
+        .autocomplete-item-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .autocomplete-item-name {
+            font-size: 13px;
+            color: #cccccc;
+        }
+        .autocomplete-item-path {
+            font-size: 11px;
+            color: #9d9d9d;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .autocomplete-empty {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: #9d9d9d;
+        }
+
+        /* ── Slash Command (/) dropdown ── */
+        .slash-dropdown {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            background: #252526;
+            border: 1px solid #454545;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            overflow: hidden;
+            z-index: 1001;
+        }
+        .slash-dropdown.hidden {
+            display: none;
+        }
+        .slash-list {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .slash-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            border-bottom: 1px solid #333333;
+            color: #cccccc;
+        }
+        .slash-item:last-child {
+            border-bottom: none;
+        }
+        .slash-item:hover,
+        .slash-item.selected {
+            background: #094771;
+        }
+        .slash-item-icon {
+            display: flex;
+            align-items: center;
+            color: #3794ff;
+            padding-top: 2px;
+        }
+        .slash-item-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .slash-item-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #3794ff;
+        }
+        .slash-item-preview {
+            font-size: 11px;
+            color: #9d9d9d;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 250px;
+        }
+        .slash-empty {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: #9d9d9d;
         }
         
         /* Connection status indicator */
@@ -2335,6 +2444,108 @@ self.addEventListener('fetch', event => {
         }
         body.light-theme .problem-source {
             color: #717171;
+        }
+        /* Light theme: File Autocomplete (#) dropdown */
+        body.light-theme .autocomplete-dropdown {
+            background: #ffffff;
+            border-color: #c8c8c8;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        body.light-theme .autocomplete-item {
+            color: #3c3c3c;
+        }
+        body.light-theme .autocomplete-item:hover,
+        body.light-theme .autocomplete-item.selected {
+            background: #0060c0;
+            color: #ffffff;
+        }
+        body.light-theme .autocomplete-item:hover .autocomplete-item-icon,
+        body.light-theme .autocomplete-item.selected .autocomplete-item-icon,
+        body.light-theme .autocomplete-item:hover .autocomplete-item-name,
+        body.light-theme .autocomplete-item.selected .autocomplete-item-name,
+        body.light-theme .autocomplete-item:hover .autocomplete-item-path,
+        body.light-theme .autocomplete-item.selected .autocomplete-item-path {
+            color: #ffffff;
+        }
+        body.light-theme .autocomplete-item-icon {
+            color: #717171;
+        }
+        body.light-theme .autocomplete-item-name {
+            color: #3c3c3c;
+        }
+        body.light-theme .autocomplete-item-path {
+            color: #717171;
+        }
+        body.light-theme .autocomplete-empty {
+            color: #717171;
+        }
+        /* Light theme: Slash Command (/) dropdown */
+        body.light-theme .slash-dropdown {
+            background: #ffffff;
+            border-color: #c8c8c8;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        body.light-theme .slash-item {
+            color: #3c3c3c;
+            border-bottom-color: #e0e0e0;
+        }
+        body.light-theme .slash-item:hover,
+        body.light-theme .slash-item.selected {
+            background: #0060c0;
+            color: #ffffff;
+        }
+        body.light-theme .slash-item:hover .slash-item-icon,
+        body.light-theme .slash-item.selected .slash-item-icon,
+        body.light-theme .slash-item:hover .slash-item-name,
+        body.light-theme .slash-item.selected .slash-item-name,
+        body.light-theme .slash-item:hover .slash-item-preview,
+        body.light-theme .slash-item.selected .slash-item-preview {
+            color: #ffffff;
+        }
+        body.light-theme .slash-item-icon {
+            color: #0066b8;
+        }
+        body.light-theme .slash-item-name {
+            color: #0066b8;
+        }
+        body.light-theme .slash-item-preview {
+            color: #717171;
+        }
+        body.light-theme .slash-empty {
+            color: #717171;
+        }
+        /* Remote UI: plan review landscape fix — ensure footer stays visible */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .plan-review-overlay {
+                padding: 0;
+            }
+            .plan-review-modal {
+                width: 100%;
+                height: 100%;
+                max-height: 100dvh;
+                border-radius: 0;
+                border: none;
+            }
+            .plan-review-content {
+                flex: 1;
+                min-height: 0;
+                flex-direction: row;
+            }
+            .plan-review-body {
+                min-height: unset;
+                flex: 1;
+                overflow-y: auto;
+            }
+            .plan-review-sidebar {
+                max-height: none;
+                flex: 0 0 160px;
+                min-width: 160px;
+                overflow-y: auto;
+            }
+            .plan-review-footer {
+                flex-shrink: 0;
+                padding: 6px 12px;
+            }
         }
     </style>
     <audio id="notification-sound" preload="auto" src="/media/notification.wav"></audio>

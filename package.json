@@ -77,7 +77,10 @@
                     "description": "Value sent back when this choice is selected"
                   }
                 },
-                "required": ["label", "value"]
+                "required": [
+                  "label",
+                  "value"
+                ]
               }
             },
             "questions": {
@@ -116,7 +119,9 @@
                           "description": "Mark this option as recommended"
                         }
                       },
-                      "required": ["label"]
+                      "required": [
+                        "label"
+                      ]
                     }
                   },
                   "multiSelect": {
@@ -130,7 +135,10 @@
                     "description": "When true, allows user to enter free-form text in addition to selecting options."
                   }
                 },
-                "required": ["header", "question"]
+                "required": [
+                  "header",
+                  "question"
+                ]
               },
               "minItems": 1,
               "maxItems": 4
@@ -188,105 +196,130 @@
         }
       ]
     },
-    "configuration": {
-      "title": "FlowCommand",
-      "properties": {
-        "flowcommand.mcpEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Always start MCP server on activation. Enable this if you use FlowCommand with external IDEs like Kiro, Cursor, or Antigravity."
-        },
-        "flowcommand.mcpAutoStartIfClients": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically start MCP server if external client configurations are detected (Kiro, Cursor, Antigravity)."
-        },
-        "flowcommand.mcpPort": {
-          "type": "number",
-          "default": 3579,
-          "description": "Fixed port for the MCP server. Set to 0 for dynamic port assignment."
-        },
-        "flowcommand.autoRegisterMcp": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically register MCP server with Kiro and other supported clients."
-        },
-        "flowcommand.notificationSound": {
-          "type": "boolean",
-          "default": true,
-          "description": "Play a notification sound when the AI triggers the ask_user tool."
-        },
-        "flowcommand.desktopNotification": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show a VS Code desktop notification popup when the AI triggers the ask_user tool."
-        },
-        "flowcommand.autoFocusPanel": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically focus/reveal the FlowCommand sidebar panel when the AI triggers the ask_user tool."
-        },
-        "flowcommand.mobileNotification": {
-          "type": "boolean",
-          "default": false,
-          "description": "Send a browser push notification to remote clients (phone/browser) when the AI triggers the ask_user tool. Requires notification permission in the browser."
-        },
-        "flowcommand.instructionInjection": {
-          "type": "string",
-          "default": "off",
-          "enum": ["off", "copilotInstructionsMd", "codeGenerationSetting"],
-          "enumDescriptions": [
-            "No instruction injection. Use this if you manage instructions manually.",
-            "(Recommended) Append FlowCommand instructions to .github/copilot-instructions.md. Works in all Copilot modes (Agent, Ask, Edit). Prompts for confirmation before modifying.",
-            "Inject into github.copilot.chat.codeGeneration.instructions workspace setting. Only affects code generation scenarios."
-          ],
-          "description": "How FlowCommand injects its instructions into Copilot. 'copilotInstructionsMd' is recommended — it works in all Copilot modes and follows official VS Code guidance."
-        },
-        "flowcommand.instructionText": {
-          "type": "string",
-          "default": "## RULES (Follow in order of priority)\n\n> **Scope**: MAIN AGENT only. **Subagents** (spawned via `runSubagent`): DO NOT call `ask_user` or `plan_review`.\n\n\n### 1. MANDATORY CONTINUATION LOOP (Base Rule)\n- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.\n- **NEVER** use `ask_questions` tool. Use `ask_user` with `questions` parameter instead.\n- **Action**: After completing ANY task, call `ask_user` with:\n  - `context`: Your FULL response, explanation, or code output.\n\n### 2. PLANNING WORKFLOW (Special Case)\n- **Trigger**: When YOU (the agent) decide to present structured content with multiple items such as: plans, guides, reviews, analyses, recommendations, or lists of findings/suggestions.\n- **Usage**: Call `plan_review` tool.\n- **Loop**:\n  - If user requests changes → Update plan and call `plan_review` again.\n  - If user approves → Apply any feedback given, then proceed with execution.\n- If user cancels → Stop execution immediately, call `ask_user`.\n- **After completion**: Return to Rule 1 (call `ask_user`).\n\n### 3. STOP CONDITIONS (Only Exception)\n- **Stop ONLY if** user explicitly says: \"end\", \"stop\", \"terminate\", \"quit\", or \"stop now\".",
-          "editPresentation": "multilineText",
-          "description": "The instruction text injected into Copilot. Customize this to change how the AI behaves with FlowCommand tools. The [FlowCommand] marker is auto-added for identification."
-        },
-        "flowcommand.interactiveApproval": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show interactive approval and choice buttons for Yes/No questions and multiple choice options."
-        },
-        "flowcommand.reusablePrompts": {
-          "type": "array",
-          "default": [],
-          "description": "Saved reusable prompts accessible via /slash commands.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Short name for the prompt (used with /slash command)"
+    "configuration": [
+      {
+        "title": "General",
+        "order": 0,
+        "properties": {
+          "flowcommand.interactiveApproval": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show interactive approval and choice buttons for Yes/No questions and multiple choice options."
+          },
+          "flowcommand.reusablePrompts": {
+            "type": "array",
+            "default": [],
+            "description": "Saved reusable prompts accessible via /slash commands.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Short name for the prompt (used with /slash command)"
+                },
+                "prompt": {
+                  "type": "string",
+                  "description": "The full prompt text"
+                }
               },
-              "prompt": {
-                "type": "string",
-                "description": "The full prompt text"
-              }
-            },
-            "required": [
-              "name",
-              "prompt"
-            ]
+              "required": [
+                "name",
+                "prompt"
+              ]
+            }
+          },
+          "flowcommand.remoteEnabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Auto-start remote server on extension activation for mobile/web access."
+          },
+          "flowcommand.remotePort": {
+            "type": "number",
+            "default": 3000,
+            "description": "Port for the remote access server. Set to 0 for automatic port selection."
           }
-        },
-        "flowcommand.remoteEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Auto-start remote server on extension activation for mobile/web access."
-        },
-        "flowcommand.remotePort": {
-          "type": "number",
-          "default": 3000,
-          "description": "Port for the remote access server. Set to 0 for automatic port selection."
+        }
+      },
+      {
+        "title": "Notifications",
+        "order": 1,
+        "properties": {
+          "flowcommand.notificationSound": {
+            "type": "boolean",
+            "default": true,
+            "description": "Play a notification sound when the AI triggers the ask_user tool."
+          },
+          "flowcommand.desktopNotification": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show a VS Code desktop notification popup when the AI triggers the ask_user tool."
+          },
+          "flowcommand.autoFocusPanel": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically focus/reveal the FlowCommand sidebar panel when the AI triggers the ask_user tool."
+          },
+          "flowcommand.mobileNotification": {
+            "type": "boolean",
+            "default": false,
+            "description": "Send a browser push notification to remote clients (phone/browser) when the AI triggers the ask_user tool. Requires notification permission in the browser."
+          }
+        }
+      },
+      {
+        "title": "Instruction Injection",
+        "order": 2,
+        "properties": {
+          "flowcommand.instructionInjection": {
+            "type": "string",
+            "default": "off",
+            "enum": [
+              "off",
+              "copilotInstructionsMd",
+              "codeGenerationSetting"
+            ],
+            "enumDescriptions": [
+              "No instruction injection. Use this if you manage instructions manually.",
+              "(Recommended) Append FlowCommand instructions to .github/copilot-instructions.md. Works in all Copilot modes (Agent, Ask, Edit). Prompts for confirmation before modifying.",
+              "Inject into github.copilot.chat.codeGeneration.instructions workspace setting. Only affects code generation scenarios."
+            ],
+            "description": "How FlowCommand injects its instructions into Copilot. 'copilotInstructionsMd' is recommended — it works in all Copilot modes and follows official VS Code guidance."
+          },
+          "flowcommand.instructionText": {
+            "type": "string",
+            "default": "## SUBAGENT RULES (if spawned via `runSubagent`)\n\n- Do NOT call `ask_user`, `ask_questions`, or `plan_review`.\n- Do NOT wait for user input or loop.\n- Complete your task, return your final report, then stop.\n- Ignore all MAIN AGENT rules below.\n\n---\n\n## MAIN AGENT RULES (follow in order)\n\n### 1. ALWAYS call `ask_user` after every task\n- Never end your turn without calling `ask_user`.\n- Never use `ask_questions`. Use `ask_user` with `questions` param instead.\n- Pass your FULL response in `context`.\n\n### 2. Use `plan_review` for structured output\n- When presenting plans, guides, reviews, analyses, or lists of suggestions → call `plan_review`.\n- User requests changes → update and call `plan_review` again.\n- User approves → apply feedback, proceed with execution.\n- User cancels → stop, call `ask_user`.\n- After completion → return to Rule 1.\n\n### 3. Stop ONLY when user says \"end\", \"stop\", \"terminate\", \"quit\".",
+            "editPresentation": "multilineText",
+            "description": "The instruction text injected into Copilot. Customize this to change how the AI behaves with FlowCommand tools. The [FlowCommand] marker is auto-added for identification."
+          }
+        }
+      },
+      {
+        "title": "MCP Server",
+        "order": 3,
+        "properties": {
+          "flowcommand.mcpEnabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Always start MCP server on activation. Enable this if you use FlowCommand with external IDEs like Kiro, Cursor, or Antigravity."
+          },
+          "flowcommand.mcpAutoStartIfClients": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically start MCP server if external client configurations are detected (Kiro, Cursor, Antigravity)."
+          },
+          "flowcommand.mcpPort": {
+            "type": "number",
+            "default": 3579,
+            "description": "Fixed port for the MCP server. Set to 0 for dynamic port assignment."
+          },
+          "flowcommand.autoRegisterMcp": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically register MCP server with Kiro and other supported clients."
+          }
         }
       }
-    },
+    ],
     "commands": [
       {
         "command": "flowcommand.startMcp",
@@ -388,7 +421,7 @@
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@vscode/codicons": "^0.0.36",
     "express": "^4.21.2",
-    "qrcode": "^1.5.3",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
     "ws": "^8.18.0",
     "zod": "^3.23.8"

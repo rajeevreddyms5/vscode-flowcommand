@@ -1468,6 +1468,9 @@
             case 'queuedAgentRequestCount':
                 updateQueuedAgentBadge(message.count || 0);
                 break;
+            case 'pendingInputCount':
+                updatePendingInputBadge(message.count || 0);
+                break;
         }
     }
 
@@ -1507,6 +1510,38 @@
             badge.style.display = 'flex';
         } else if (badge) {
             badge.style.display = 'none';
+        }
+    }
+
+    /**
+     * Show/hide the pending input count badge at the top of the chat.
+     * Displays a small indicator showing how many inputs are waiting for the user.
+     * Synced with the VS Code sidebar badge count.
+     */
+    function updatePendingInputBadge(count) {
+        var badge = document.getElementById('pending-input-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.id = 'pending-input-badge';
+                badge.className = 'pending-input-badge';
+                // Insert at the top of the chat container
+                var chatContainer = document.getElementById('chat-container');
+                if (chatContainer) {
+                    chatContainer.insertBefore(badge, chatContainer.firstChild);
+                }
+            }
+            badge.innerHTML = '<span class="codicon codicon-bell"></span> ' +
+                count + ' pending input' + (count > 1 ? 's' : '') +
+                ' — AI is waiting for your response';
+            badge.classList.remove('hidden');
+            badge.classList.remove('badge-pulse');
+            // Trigger reflow for animation restart
+            void badge.offsetWidth;
+            badge.classList.add('badge-pulse');
+        } else if (badge) {
+            badge.classList.add('hidden');
+            badge.classList.remove('badge-pulse');
         }
     }
 

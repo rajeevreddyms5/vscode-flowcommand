@@ -3276,6 +3276,10 @@ self.addEventListener('fetch', event => {
                     if (state.queuedAgentRequestCount !== undefined) {
                         window.dispatchVSCodeMessage({ type: 'queuedAgentRequestCount', count: state.queuedAgentRequestCount });
                     }
+                    // Sync pending input count badge
+                    if (state.pendingInputCount !== undefined) {
+                        window.dispatchVSCodeMessage({ type: 'pendingInputCount', count: state.pendingInputCount });
+                    }
                 }
             }
 

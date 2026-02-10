@@ -107,7 +107,8 @@ type ToWebviewMessage =
     | { type: 'planReviewCompleted'; reviewId: string; status: string }
     | { type: 'multiQuestionPending'; requestId: string; questions: Question[] }
     | { type: 'multiQuestionCompleted'; requestId: string }
-    | { type: 'queuedAgentRequestCount'; count: number };
+    | { type: 'queuedAgentRequestCount'; count: number }
+    | { type: 'pendingInputCount'; count: number };
 
 type FromWebviewMessage =
     | { type: 'submit'; value: string; attachments: AttachmentInfo[] }
@@ -246,6 +247,10 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
     // Pending plan review count (tracked separately since plan_review lives outside this class)
     private _pendingPlanReviewCount: number = 0;
+
+    // Fallback view reference for badge updates when the primary view is disposed
+    // (e.g., user answers from remote browser while sidebar is collapsed)
+    private _viewForBadge: vscode.WebviewView | undefined;
 
     // MCP server status (for settings UI)
     private _mcpRunning: boolean = false;
@@ -535,9 +540,12 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     /**
      * Update the view badge to show the number of pending inputs.
      * Counts: current ask_user/multi-question + queued agent requests + pending plan reviews.
+     * Uses _viewForBadge as fallback when the primary view is disposed
+     * (e.g., user answers from remote browser while sidebar is collapsed).
      */
     private _updateBadge(): void {
-        if (!this._view) { return; }
+        const view = this._view || this._viewForBadge;
+        if (!view) { return; }
 
         try {
             const askUserCount = this._currentToolCallId ? 1 : 0;
@@ -545,15 +553,19 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             const total = askUserCount + queuedCount + this._pendingPlanReviewCount;
 
             if (total > 0) {
-                this._view.badge = {
+                view.badge = {
                     value: total,
                     tooltip: `${total} pending input${total > 1 ? 's' : ''} — AI is waiting for your response`
                 };
             } else {
-                this._view.badge = undefined;
+                view.badge = undefined;
             }
+
+            // Broadcast count to webview + remote clients for in-content badge
+            this._postMessage({ type: 'pendingInputCount', count: total });
         } catch {
             // Badge API failure should never break tool execution
+            // This also catches errors if _viewForBadge is a stale/disposed reference
         }
     }
 
@@ -778,6 +790,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         if (this._view) {
             this._view.badge = undefined;
         }
+        this._viewForBadge = undefined;
 
         // Clean up temp images from current session before clearing
         this._cleanupTempImagesFromEntries(this._currentSessionCalls);
@@ -854,6 +867,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
         // Clear current tool call ID
         this._currentToolCallId = null;
+        this._updateBadge();
 
         // Notify webview + remote clients to dismiss the pending UI
         // (_postMessage handles both local webview and remote broadcast)
@@ -951,6 +965,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
         this._setProcessingState(false);
         this._updateCurrentSessionUI();
+        this._updateBadge();
         console.log(`[FlowCommand] Showing queued agent request ${next.toolCallId} (${this._queuedAgentRequests.length} remaining)`);
     }
 
@@ -1032,6 +1047,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         pendingRequest: { id: string; prompt: string; context?: string; isApprovalQuestion: boolean; choices?: ParsedChoice[] } | null;
         pendingMultiQuestion: { requestId: string; questions: Question[] } | null;
         queuedAgentRequestCount: number;
+        pendingInputCount: number;
         settings: { 
             soundEnabled: boolean; 
             desktopNotificationEnabled: boolean;
@@ -1079,6 +1095,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             pendingRequest,
             pendingMultiQuestion,
             queuedAgentRequestCount: this._queuedAgentRequests.length,
+            pendingInputCount: (this._currentToolCallId ? 1 : 0) + this._queuedAgentRequests.length + this._pendingPlanReviewCount,
             settings: {
                 soundEnabled: this._soundEnabled,
                 desktopNotificationEnabled: this._desktopNotificationEnabled,
@@ -1118,7 +1135,12 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         _token: vscode.CancellationToken,
     ) {
         this._view = webviewView;
+        this._viewForBadge = undefined; // Primary view is available, no fallback needed
         this._webviewReady = false; // Reset ready state when view is resolved
+
+        // Immediately sync badge state when view is (re-)resolved
+        // This clears stale badges from previous sessions or when the view was disposed
+        this._updateBadge();
 
         webviewView.webview.options = {
             enableScripts: true,
@@ -1137,6 +1159,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         // Clean up when webview is disposed
         webviewView.onDidDispose(() => {
             this._webviewReady = false;
+            // Keep a fallback reference for badge updates from remote clients
+            // while the sidebar is collapsed/disposed
+            this._viewForBadge = this._view;
             this._view = undefined;
             // Clear file search cache when view is hidden
             this._fileSearchCache.clear();
@@ -1722,6 +1747,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 resolve({ value: finalValue, queue: this._queueEnabled, attachments });
                 this._pendingRequests.delete(this._currentToolCallId);
                 this._currentToolCallId = null;
+                this._updateBadge();
 
                 // Process next queued agent request if any
                 this._processNextQueuedToolCall();
@@ -2256,6 +2282,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             resolve({ value: finalValue, queue: true, attachments: queuedPrompt.attachments || [] });
             this._pendingRequests.delete(this._currentToolCallId!);
             this._currentToolCallId = null;
+            this._updateBadge();
 
             // Process next queued agent request if any
             this._processNextQueuedToolCall();
@@ -2411,6 +2438,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         });
         this._pendingRequests.delete(this._currentToolCallId);
         this._currentToolCallId = null;
+        this._updateBadge();
 
         // Process next queued agent request if any
         this._processNextQueuedToolCall();
@@ -2695,6 +2723,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             this._pendingRequests.delete(requestId);
             this._currentToolCallId = null;
             this._currentMultiQuestions = null;
+            this._updateBadge();
 
             // Process next queued agent request if any
             this._processNextQueuedToolCall();
@@ -2748,6 +2777,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         this._pendingRequests.delete(requestId);
         this._currentToolCallId = null;
         this._currentMultiQuestions = null;
+        this._updateBadge();
 
         // Process next queued agent request if any
         this._processNextQueuedToolCall();

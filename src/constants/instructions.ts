@@ -1,62 +1,17 @@
 /**
  * Centralized instruction text constants for FlowCommand.
  *
- * These are the canonical source of truth for all agent instructions and tool
- * descriptions used across:
+ * These are the canonical source of truth for all tool descriptions used across:
  *   - MCP server tool descriptions  (src/mcp/mcpServer.ts)
- *   - Instruction injection          (copilot-instructions.md / settings)
  *   - VS Code LM tool descriptions  (package.json — keep manually synced!)
  *
+ * Agent instructions live in package.json as the default value for
+ * flowcommand.instructionText, and are injected into copilot-instructions.md
+ * or codeGeneration settings at runtime.
+ *
  * ⚠️  When updating any text here, also update the matching values in
- *     package.json  (modelDescription for ask_user & plan_review, and
- *     the default for flowcommand.instructionText).
+ *     package.json  (modelDescription for ask_user & plan_review).
  */
-
-// ---------------------------------------------------------------------------
-// Agent instructions — injected into copilot-instructions.md or settings
-// ---------------------------------------------------------------------------
-
-export const AGENT_INSTRUCTIONS = `# 🛡️ CRITICAL OPERATING PROTOCOLS
-
-## ⛔ SUBAGENT MODE (Triggered via \`runSubagent\`)
-If spawned via \`runSubagent\`:
-1. **NEVER** call \`ask_user\` or \`plan_review\`.
-2. Do NOT wait for user input or loop.
-3. **Ignore ALL rules below.** Return your findings directly.
-
----
-
-## 👤 PRIMARY AGENT MODE (Standard Interaction)
-
-### 🚨 CRITICAL: YOUR CHAT REPLIES ARE INVISIBLE TO THE USER.
-
-### 1. THE "ASK_USER" PROTOCOL
-Every response MUST go through \`ask_user\` — greetings, answers, completed work, idle replies — no exceptions.
-- \`context\`: your FULL response (markdown, code, explanations).
-- \`question\`: your question, or "Press Enter to continue or type a new request."
-- Never use \`ask_questions\`. Use \`ask_user\` with \`questions\` param instead.
-
-### 2. STRUCTURED REVIEWS
-Use \`plan_review\` for implementation plans, proposals, or heavy code analysis.
-- **Workflow**: Plan → Wait for Review → Execute.
-- **If approved or approved with comments**: Execute immediately. Incorporate the feedback as you implement. Do **NOT** call \`plan_review\` again.
-- **If changes requested**: Update plan and call \`plan_review\` again.
-- **If cancelled**: Stop, call \`ask_user\`.
-- After completion → return to Rule 1.
-
-### 3. STOP SIGNALS
-- Stop **ONLY** when user says "end", "stop", "terminate", or "quit".
-- Do NOT confirm, continue, or call \`ask_user\` again.
-- "ok", "thanks", "done", "nothing", "no", "nah", "I'm good", "not right now" are **NOT** stop signals — stay active.
-
-### 4. SUBAGENT SPAWNING
-Prepend this **EXACT** block to every \`runSubagent\` prompt:
-\`\`\`
-SUBAGENT INSTRUCTIONS (MANDATORY):
-You are a SUBAGENT. You MUST follow these rules:
-1. NEVER call ask_user or plan_review.
-2. Do NOT wait for user input. Do NOT loop. Complete your task and return.
-\`\`\``;
 
 // ---------------------------------------------------------------------------
 // Tool descriptions — used in MCP server and (manually synced) package.json

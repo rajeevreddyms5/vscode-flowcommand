@@ -461,6 +461,7 @@ interface InjectionState {
     method: string;
     contentHash: string;
     timestamp: number;
+    acceptedModifiedHash?: string; // hash of user-modified content they chose to "Keep Current"
 }
 
 // Extension context reference for state storage
@@ -539,6 +540,44 @@ async function checkCopilotInstructionsState(expectedContent: string): Promise<'
     } catch {
         return 'no-file';
     }
+}
+
+/**
+ * Get hash of the actual FlowCommand section content in copilot-instructions.md
+ * Used to track user-accepted modifications across restarts
+ */
+async function getActualCopilotInstructionsHash(): Promise<string | undefined> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) return undefined;
+
+    const filePath = vscode.Uri.joinPath(workspaceFolders[0].uri, '.github', 'copilot-instructions.md');
+    try {
+        const fileData = await vscode.workspace.fs.readFile(filePath);
+        const content = Buffer.from(fileData).toString('utf-8');
+        const startIdx = content.indexOf(FLOWCOMMAND_SECTION_START);
+        const endIdx = content.indexOf(FLOWCOMMAND_SECTION_END);
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            const section = content.substring(startIdx, endIdx + FLOWCOMMAND_SECTION_END.length);
+            return hashContent(section);
+        }
+    } catch { /* file doesn't exist */ }
+    return undefined;
+}
+
+/**
+ * Get hash of the actual FlowCommand entry in codeGeneration.instructions settings
+ * Used to track user-accepted modifications across restarts
+ */
+function getActualCodeGenSettingsHash(): string | undefined {
+    const copilotConfig = vscode.workspace.getConfiguration('github.copilot.chat');
+    const currentInstructions = copilotConfig.get<Array<{ text?: string; file?: string }>>('codeGeneration.instructions', []);
+    const existingEntry = currentInstructions.find(
+        (inst) => inst.text && inst.text.includes(FLOWCOMMAND_MARKER)
+    );
+    if (existingEntry?.text) {
+        return hashContent(existingEntry.text);
+    }
+    return undefined;
 }
 
 /**
@@ -653,6 +692,12 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                         // Force re-inject: update the existing section
                         await injectIntoCopilotInstructionsMd(true);
                     } else if (fileState === 'modified') {
+                        // Check if user previously accepted this modification
+                        const currentFileHash = await getActualCopilotInstructionsHash();
+                        if (!forceInject && currentFileHash && storedState?.acceptedModifiedHash === currentFileHash) {
+                            console.log('[FlowCommand] User previously accepted modified instructions, skipping prompt');
+                            return;
+                        }
                         // User modified the FlowCommand section - warn them
                         const action = await vscode.window.showWarningMessage(
                             'FlowCommand instructions in copilot-instructions.md have been modified. Re-inject to restore expected behavior?',
@@ -661,6 +706,9 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                         );
                         if (action === 'Re-inject') {
                             await injectIntoCopilotInstructionsMd(true);
+                        } else if (action === 'Keep Current') {
+                            // Store acceptance so we don't prompt again on next restart
+                            await storeInjectionState({ method, contentHash, timestamp: Date.now(), acceptedModifiedHash: currentFileHash });
                         }
                         return;
                     }
@@ -707,6 +755,12 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                     // Force re-inject: update the settings entry
                     injectIntoCodeGenSettings();
                 } else if (settingsState === 'modified' && !forceInject) {
+                    // Check if user previously accepted this modification
+                    const currentSettingsHash = getActualCodeGenSettingsHash();
+                    if (currentSettingsHash && storedState?.acceptedModifiedHash === currentSettingsHash) {
+                        console.log('[FlowCommand] User previously accepted modified settings instructions, skipping prompt');
+                        return;
+                    }
                     // User modified - warn
                     const action = await vscode.window.showWarningMessage(
                         'FlowCommand instructions in Code Generation settings have been modified. Re-inject?',
@@ -715,6 +769,9 @@ async function handleInstructionInjection(forceInject: boolean = false): Promise
                     );
                     if (action === 'Re-inject') {
                         injectIntoCodeGenSettings();
+                    } else if (action === 'Keep Current') {
+                        // Store acceptance so we don't prompt again on next restart
+                        await storeInjectionState({ method, contentHash, timestamp: Date.now(), acceptedModifiedHash: currentSettingsHash });
                     }
                     return;
                 } else if (settingsState === 'missing') {

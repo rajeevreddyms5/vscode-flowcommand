@@ -2,6 +2,23 @@
 
 All notable changes to FlowCommand will be documented in this file.
 
+## [2.0.3] - 2025-07-11
+
+### Added
+- **View badge indicator** — numbered badge on FlowCommand sidebar icon when AI is waiting for input
+  - Counts active `ask_user`, queued concurrent requests, and pending plan reviews
+  - Works with both local and remote server paths
+  - Restores on sidebar re-open, clears on dispose
+- **Subagent restriction** — 3-layer defense preventing subagents from calling `ask_user`/`plan_review`
+  - ⛔ SUBAGENT RULES gate in `.github/copilot-instructions.md`
+  - ⛔ Stop-sign prefix in tool descriptions (package.json + MCP server)
+  - Rule 4: main agent injects restriction in every `runSubagent` prompt
+
+### Fixed
+- Em-dash encoding corruption in package.json tool descriptions
+
+---
+
 ## [2.0.0] - 2025-02-09
 
 ### 🎉 Rebrand to FlowCommand

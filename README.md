@@ -165,25 +165,34 @@ FlowCommand can automatically inject instructions into your project's `.github/c
 Create `.github/copilot-instructions.md` in your workspace and add:
 
 ```markdown
-## RULES (Follow in order of priority)
+## ⛔ SUBAGENT RULES (if spawned via `runSubagent`)
 
-### 1. MANDATORY CONTINUATION LOOP (Base Rule)
-- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.
-- **NEVER** use `ask_questions` tool. Use `ask_user` with `questions` parameter instead.
-- **Action**: After completing ANY task, call `ask_user` with:
-  - `context`: Your FULL response, explanation, or code output.
+**STOP. Read this FIRST before any other rule.**
 
-### 2. PLANNING WORKFLOW (Special Case)
-- **Trigger**: When presenting structured content with multiple items such as: plans, guides, reviews, analyses, recommendations, or lists of findings/suggestions.
-- **Usage**: Call `plan_review` tool.
-- **Loop**:
-  - If user requests changes → Update plan and call `plan_review` again.
-  - If user approves → Apply any feedback given, then proceed with execution.
-  - If user cancels → Stop execution immediately, call `ask_user`.
-- **After completion**: Return to Rule 1 (call `ask_user`).
+- Do NOT call `ask_user` or `plan_review`.
+- Do NOT wait for user input or loop.
+- **ALL rules below do NOT apply to you. Ignore them entirely.**
 
-### 3. STOP CONDITIONS (Only Exception)
-- **Stop ONLY if** user explicitly says: "end", "stop", "terminate", "quit", or "stop now".
+---
+
+## AGENT RULES (follow in order)
+
+### 1. ALWAYS call `ask_user` after every task
+- Never end your turn without calling `ask_user`.
+- Never use `ask_questions`. Use `ask_user` with `questions` param instead.
+- Pass your FULL response in `context`.
+
+### 2. Use `plan_review` for structured output
+- When presenting plans, guides, reviews, analyses, or lists of suggestions → call `plan_review`.
+- User requests changes → update and call `plan_review` again.
+- User approves → apply feedback, proceed with execution.
+- User cancels → stop, call `ask_user`.
+- After completion → return to Rule 1.
+
+### 3. Stop ONLY when user says "end", "stop", "terminate", "quit".
+
+### 4. When using `runSubagent`, ALWAYS include this line in the prompt:
+- "Do NOT call `ask_user` or `plan_review`."
 ```
 
 ### Option 3: VS Code Setting
@@ -206,6 +215,8 @@ Edit the instruction text in Settings → **Instruction Text** to modify the AI 
 - AI always calls `ask_user` after completing work
 - AI uses `plan_review` for multi-step plans
 - AI only stops when you explicitly say "stop", "end", "quit", or "terminate"
+- **Subagents** (spawned via `runSubagent`) are prevented from calling `ask_user` or `plan_review`
+- A numbered **badge** appears on the FlowCommand sidebar icon when the AI is waiting for your input
 
 ---
 

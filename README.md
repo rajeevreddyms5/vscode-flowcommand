@@ -191,8 +191,13 @@ Create `.github/copilot-instructions.md` in your workspace and add:
 
 ### 3. Stop ONLY when user says "end", "stop", "terminate", "quit".
 
-### 4. When using `runSubagent`, ALWAYS include this line in the prompt:
-- "Do NOT call `ask_user` or `plan_review`."
+### 4. When using `runSubagent`, ALWAYS include ALL of the following lines VERBATIM at the TOP of the prompt:
+```
+SUBAGENT INSTRUCTIONS (MANDATORY):
+You are a SUBAGENT. You MUST follow these rules:
+1. NEVER call ask_user or plan_review.
+2. Do NOT wait for user input. Do NOT loop. Complete your task and return.
+```
 ```
 
 ### Option 3: VS Code Setting

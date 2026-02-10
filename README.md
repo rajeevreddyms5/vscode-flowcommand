@@ -14,14 +14,15 @@ FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, r
 
 | Feature | Description |
 |---------|-------------|
+| **Auto-Inject Instructions** | ⭐ One-click setup - AI always asks before quitting |
+| **Prompt Template** | ⭐ Set a persistent prompt that auto-appends to every message |
+| **Queue Pause/Play** | Temporarily pause and resume auto-responses |
 | **Smart Queue Mode** | Batch prompts for automatic responses |
 | **Plan Review Panel** | Dedicated 70/30 editor panel with inline comments |
 | **Remote Access** | Control from phone/tablet/browser via QR code |
 | **Remote Notifications** | Visual toast alerts when AI needs input |
 | **Interactive Approval** | Yes/No/Option buttons parsed from AI questions |
-| **Queue Pause/Play** | Temporarily pause auto-responses |
-| **Reusable Prompts** | /slash commands and prompt templates for frequent prompts |
-| **Auto-Inject Instructions** | ⭐ One-click setup - AI always asks before quitting |
+| **Reusable Prompts** | /slash commands for frequent prompts |
 | **File References** | `#` mentions to attach workspace files and folders |
 | **Theme Support** | Light/dark themes synced across VS Code and remote |
 | **MCP Server** | Integration with Kiro, Cursor, and other IDEs |
@@ -29,6 +30,33 @@ FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, r
 ---
 
 ## Features
+
+### Auto-Inject Instructions ⭐
+FlowCommand can automatically inject instructions into your project so the AI always calls `ask_user` and `plan_review` correctly. One-click setup — no manual configuration needed. See [AI Instructions Setup](#-ai-instructions-setup-recommended) for details.
+
+### Prompt Template ⭐
+Set a persistent prompt template that **automatically appends to every message** sent through FlowCommand — in both Queue Mode and Normal Mode. This is useful when you want the AI to always follow certain guidelines without repeating yourself:
+
+- **"Don't touch unrelated code"** — prevent the AI from making unnecessary changes
+- **"Always use TypeScript strict mode"** — enforce coding standards across all prompts
+- **"Keep responses concise"** — control output verbosity
+- **"Never delete existing tests"** — protect important parts of your codebase
+
+**How to set it up:**
+1. Click the ⚙️ (Settings) icon in the FlowCommand title bar
+2. Find the **Prompt Template** field
+3. Enter your persistent instructions
+4. Every prompt sent via FlowCommand will now include your template automatically
+
+Think of it as a system prompt for your AI — set it once and it applies to everything.
+
+### Queue Pause/Play
+Temporarily pause auto-responses without losing your queued prompts. Useful when you need to:
+- Review AI output before continuing
+- Manually intervene mid-workflow
+- Take a break and resume later
+
+Toggle pause/play from the FlowCommand panel or the remote UI.
 
 ### Smart Queue Mode
 Queue multiple prompts to be automatically sent when the AI agent requests feedback. Perfect for:

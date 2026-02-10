@@ -79,6 +79,7 @@ export async function planReview(
         // Play notification sound, show desktop notification, auto-focus, mobile notification
         if (webviewProvider) {
             webviewProvider.triggerPlanReviewNotifications(title);
+            webviewProvider.notifyPlanReviewStarted();
         }
 
         // Broadcast plan review to remote clients (mobile/browser)
@@ -164,6 +165,9 @@ export async function planReview(
         cancellationDisposable.dispose();
         pendingReviews.delete(reviewId);
         PlanReviewPanel.closeIfOpen(reviewId);
+        if (webviewProvider) {
+            webviewProvider.notifyPlanReviewEnded();
+        }
     }
 }
 

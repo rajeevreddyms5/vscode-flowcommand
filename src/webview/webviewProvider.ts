@@ -244,6 +244,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     private _instructionText: string = '';
     private _instructionStatus: InstructionStatus = 'unknown';
 
+    // Pending plan review count (tracked separately since plan_review lives outside this class)
+    private _pendingPlanReviewCount: number = 0;
+
     // MCP server status (for settings UI)
     private _mcpRunning: boolean = false;
     private _mcpUrl: string | null = null;
@@ -512,6 +515,49 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
     }
 
     /**
+     * Notify that a plan review has started (increments badge count).
+     * Called from planReview/index.ts when the plan_review tool is invoked.
+     */
+    public notifyPlanReviewStarted(): void {
+        this._pendingPlanReviewCount++;
+        this._updateBadge();
+    }
+
+    /**
+     * Notify that a plan review has ended (decrements badge count).
+     * Called from planReview/index.ts when the plan review is resolved/cancelled.
+     */
+    public notifyPlanReviewEnded(): void {
+        this._pendingPlanReviewCount = Math.max(0, this._pendingPlanReviewCount - 1);
+        this._updateBadge();
+    }
+
+    /**
+     * Update the view badge to show the number of pending inputs.
+     * Counts: current ask_user/multi-question + queued agent requests + pending plan reviews.
+     */
+    private _updateBadge(): void {
+        if (!this._view) { return; }
+
+        try {
+            const askUserCount = this._currentToolCallId ? 1 : 0;
+            const queuedCount = this._queuedAgentRequests.length;
+            const total = askUserCount + queuedCount + this._pendingPlanReviewCount;
+
+            if (total > 0) {
+                this._view.badge = {
+                    value: total,
+                    tooltip: `${total} pending input${total > 1 ? 's' : ''} — AI is waiting for your response`
+                };
+            } else {
+                this._view.badge = undefined;
+            }
+        } catch {
+            // Badge API failure should never break tool execution
+        }
+    }
+
+    /**
      * Play notification sound (called when ask_user tool is triggered)
      * Works even when webview is not visible by using system sound
      */
@@ -726,6 +772,12 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
             queued.resolve({ value: '[CANCELLED: Extension disposed]', queue: false, attachments: [], cancelled: true });
         }
         this._queuedAgentRequests = [];
+        this._pendingPlanReviewCount = 0;
+
+        // Clear badge before view is disposed
+        if (this._view) {
+            this._view.badge = undefined;
+        }
 
         // Clean up temp images from current session before clearing
         this._cleanupTempImagesFromEntries(this._currentSessionCalls);
@@ -907,6 +959,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
      */
     private _broadcastQueuedAgentCount(): void {
         this._postMessage({ type: 'queuedAgentRequestCount', count: this._queuedAgentRequests.length });
+        this._updateBadge();
     }
 
     /**
@@ -1183,6 +1236,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 this._trimCurrentSessionCalls();
                 this._updateCurrentSessionUI();
                 this._currentToolCallId = null;
+                this._updateBadge();
 
                 return {
                     value: queuedPrompt.prompt,
@@ -1281,6 +1335,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         this._setProcessingState(false);
         
         this._updateCurrentSessionUI();
+        this._updateBadge();
 
         return new Promise<UserResponseResult>((resolve) => {
             this._pendingRequests.set(toolCallId, resolve);
@@ -1412,6 +1467,7 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
 
         this._setProcessingState(false);
         this._updateCurrentSessionUI();
+        this._updateBadge();
 
         return new Promise<UserResponseResult>((resolve) => {
             this._pendingRequests.set(requestId, resolve);
@@ -1611,6 +1667,9 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
                 });
             }
         }
+
+        // Restore badge state when sidebar is re-opened
+        this._updateBadge();
     }
 
     /**

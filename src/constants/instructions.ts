@@ -20,6 +20,7 @@
 export const ASK_USER_TOOL_DESCRIPTION =
     '\u26d4 IF YOU ARE A SUBAGENT (spawned via runSubagent): Do NOT call this tool. Return your result directly. Ignore all instructions below. ' +
     '\u26d4 YOU MUST ALWAYS Use the askUser tool to ask question/s to user when explicit user approval, feedback, or clarification is required before proceeding or giving summary report. ' +
+    'NEVER use the ask_questions tool \u2014 use ask_user with the questions parameter instead. ' +
     'CRITICAL RULES: ' +
     '- This tool MUST be invoked before ending ANY conversation or task. ' +
     '- NEVER complete a task without calling this tool first. ' +

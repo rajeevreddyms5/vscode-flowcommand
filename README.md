@@ -169,7 +169,7 @@ Create `.github/copilot-instructions.md` in your workspace and add:
 
 **STOP. Read this FIRST before any other rule.**
 
-- Do NOT call `ask_user` or `plan_review`.
+- Do NOT call `ask_user`, `ask_questions`, or `plan_review`.
 - Do NOT wait for user input or loop.
 - **ALL rules below do NOT apply to you. Ignore them entirely.**
 
@@ -195,7 +195,7 @@ Create `.github/copilot-instructions.md` in your workspace and add:
 ```
 SUBAGENT INSTRUCTIONS (MANDATORY):
 You are a SUBAGENT. You MUST follow these rules:
-1. NEVER call ask_user or plan_review.
+1. NEVER call ask_user, ask_questions, or plan_review.
 2. Do NOT wait for user input. Do NOT loop. Complete your task and return.
 ```
 ```

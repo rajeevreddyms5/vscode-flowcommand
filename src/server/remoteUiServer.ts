@@ -3003,8 +3003,13 @@ self.addEventListener('fetch', event => {
                     }
                     if (state.settings) {
                         window.dispatchVSCodeMessage({ type: 'updateSettings', ...state.settings });
-                        // Sync mobile notification flag for browser notifications
-                        window.mobileNotificationEnabled = state.settings.mobileNotificationEnabled === true;
+                        // For remote clients: default to notifications ON (they explicitly want them)
+                        // Only turn OFF if VS Code explicitly disabled it, otherwise keep TRUE
+                        // This ensures remote users get notifications by default
+                        if (state.settings.mobileNotificationEnabled === false) {
+                            window.mobileNotificationEnabled = false;
+                        }
+                        // Request permission if enabled (or still at default true)
                         if (window.mobileNotificationEnabled) {
                             requestNotificationPermission();
                         }
@@ -3058,11 +3063,16 @@ self.addEventListener('fetch', event => {
                 } else {
                     console.log('[FlowCommand] WARNING: dispatchVSCodeMessage not available');
                 }
-                // Trigger mobile browser notification for toolCallPending or planReviewPending
-                if ((message.type === 'toolCallPending' || message.type === 'planReviewPending') && window.mobileNotificationEnabled) {
-                    const notificationText = message.type === 'planReviewPending' 
-                        ? 'Plan Review: ' + (message.title || 'Review required')
-                        : 'AI needs your input: ' + (message.prompt || 'Question pending');
+                // Trigger mobile browser notification for toolCallPending, planReviewPending, or multiQuestionPending
+                if ((message.type === 'toolCallPending' || message.type === 'planReviewPending' || message.type === 'multiQuestionPending') && window.mobileNotificationEnabled) {
+                    let notificationText;
+                    if (message.type === 'planReviewPending') {
+                        notificationText = 'Plan Review: ' + (message.title || 'Review required');
+                    } else if (message.type === 'multiQuestionPending') {
+                        notificationText = 'AI has questions for you';
+                    } else {
+                        notificationText = 'AI needs your input: ' + (message.prompt || 'Question pending');
+                    }
                     showMobileNotification(notificationText);
                 }
                 // Sync mobile notification flag when settings change

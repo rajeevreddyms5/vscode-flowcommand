@@ -4,8 +4,6 @@
 
 FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, review multi-step plans, pause processing, and access everything from your phone or browser. Perfect for long-running tasks, hands-free automation, and staying in command of your AI workflow.
 
-> **Built on:** [4regab/TaskSync](https://github.com/4regab/TaskSync) - FlowCommand extends TaskSync with remote access, plan review panels, mobile notifications, and enhanced interaction features.
-
 ---
 
 ## 🚀 Key Features
@@ -15,11 +13,11 @@ FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, r
 | **Smart Queue Mode** | Batch prompts for automatic responses |
 | **Plan Review Panel** | Dedicated 70/30 editor panel with inline comments |
 | **Remote Access** | Control from phone/tablet/browser via QR code |
-| **Mobile Notifications** | Push notifications when AI needs input |
+| **Remote Notifications** | Visual toast alerts when AI needs input |
 | **Interactive Approval** | Yes/No/Option buttons parsed from AI questions |
 | **Queue Pause/Play** | Temporarily pause auto-responses |
 | **Reusable Prompts** | /slash commands and prompt templates for frequent prompts |
-| **Auto-Inject Instructions** | One-click AI instruction setup via copilot-instructions.md |
+| **Auto-Inject Instructions** | ⭐ One-click setup - AI always asks before quitting |
 | **File References** | `#` mentions to attach workspace files and folders |
 | **Theme Support** | Light/dark themes synced across VS Code and remote |
 | **MCP Server** | Integration with Kiro, Cursor, and other IDEs |
@@ -213,6 +211,14 @@ Access FlowCommand from your phone, tablet, or any browser on your local network
    - Send terminal commands
    - Light/dark theme support (syncs with VS Code theme)
 
+#### Remote Notifications
+When AI requests input, remote clients receive a visual toast notification:
+
+- **Blue banner** appears at top of screen
+- Auto-hides after 8 seconds, tap to dismiss
+- Includes sound alert if enabled
+- Works on HTTP (no special setup required)
+
 ---
 
 ## ⚙️ Settings Reference
@@ -225,7 +231,7 @@ Open Settings via the ⚙️ icon in the FlowCommand title bar, or search `flowc
 | `flowcommand.notificationSound` | `true` | Play sound when AI calls `ask_user` |
 | `flowcommand.desktopNotification` | `true` | Show VS Code notification popup |
 | `flowcommand.autoFocusPanel` | `true` | Auto-focus FlowCommand panel when AI requests input |
-| `flowcommand.mobileNotification` | `false` | Send browser push notification to connected remote clients |
+| `flowcommand.mobileNotification` | `false` | Send visual toast notifications to connected remote clients |
 
 ### Instruction Settings
 | Setting | Default | Description |
@@ -292,21 +298,6 @@ FlowCommand automatically registers with Kiro and Cursor. For other clients, add
 MIT - See [LICENSE](LICENSE) for details.
 
 ---
-
-## Credits & Attribution
-
-FlowCommand is built on [4regab/TaskSync](https://github.com/4regab/TaskSync), the original TaskSync extension.
-
-**FlowCommand adds:**
-- Built-in remote server for mobile/browser access
-- Plan review panel with 70/30 split layout and inline comments
-- Mobile push notifications
-- Interactive approval buttons (Yes/No, numbered options)
-- Queue pause/play
-- Prompt templates
-- Enhanced theme synchronization
-
-Thank you to the original TaskSync creators for making this possible!
 
 > ⚠️ **GitHub Security Notice:**  
 > GitHub prohibits use of their servers for excessive automated bulk activity. Please review [GitHub Acceptable Use Policies](https://docs.github.com/site-policy/acceptable-use-policies/github-acceptable-use-policies#4-spam-and-inauthentic-activity-on-github) and use FlowCommand responsibly.

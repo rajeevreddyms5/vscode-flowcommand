@@ -1,5 +1,9 @@
 # FlowCommand
 
+[![Version](https://img.shields.io/visual-studio-marketplace/v/RAJEEVREDDY.flowcommand)](https://marketplace.visualstudio.com/items?itemName=RAJEEVREDDY.flowcommand)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/RAJEEVREDDY.flowcommand)](https://marketplace.visualstudio.com/items?itemName=RAJEEVREDDY.flowcommand)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Command your AI workflow. Queue prompts, review plans, control from phone/browser.**
 
 FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, review multi-step plans, pause processing, and access everything from your phone or browser. Perfect for long-running tasks, hands-free automation, and staying in command of your AI workflow.
@@ -137,6 +141,7 @@ Create `.github/copilot-instructions.md` in your workspace and add:
 
 ### 1. MANDATORY CONTINUATION LOOP (Base Rule)
 - **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.
+- **NEVER** use `ask_questions` tool. Use `ask_user` with `questions` parameter instead.
 - **Action**: After completing ANY task, call `ask_user` with:
   - `context`: Your FULL response, explanation, or code output.
 
@@ -276,8 +281,22 @@ FlowCommand automatically registers with Kiro and Cursor. For other clients, add
 
 ## Requirements
 
-- VS Code 1.90.0 or higher
-- Same network for remote access feature
+- **VS Code 1.90.0** or higher
+- **GitHub Copilot** extension (for AI tool integration)
+- **Same local network** for remote access feature (phone/browser access)
+
+---
+
+## Known Limitations
+
+| Limitation | Details |
+|------------|---------|
+| **VS Code Webview Drag-Drop** | Cannot drag files from Explorer into webview. Use paste (Ctrl+V) or # mentions instead. |
+| **iOS Safari Notifications** | Native push notifications blocked on HTTP. Visual toast notifications work as fallback. |
+| **iOS Auto-Focus** | Mobile Safari doesn't support programmatic focus - manual tap required. |
+| **Remote Attachment Button** | Hidden on remote UI (requires VS Code file picker API). Use # mentions on desktop. |
+
+---
 
 ## Troubleshooting
 

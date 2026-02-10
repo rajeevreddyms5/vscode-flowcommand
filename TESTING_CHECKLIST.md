@@ -247,22 +247,22 @@ Create a 3-step plan for setting up a Node.js project and present it using plan_
 
 ### 13.1 MCP Status (Settings)
 
-- [ ] Open Settings: MCP Server section is visible under Settings (Advanced)
-- [ ] Status: Click Start/Stop toggle → Status text updates (Running/Stopped)
-- [ ] URL: When running, URL shows http://localhost:<port>/sse
-- [ ] Copy URL: Click "Copy URL" → Clipboard contains MCP URL
+- [x] Open Settings: MCP Server section is visible under Settings (Advanced)
+- [x] Status: Click Start/Stop toggle → Status text updates (Running/Stopped)
+- [x] URL: When running, URL shows http://localhost:<port>/sse
+- [x] Copy URL: Click "Copy URL" → Clipboard contains MCP URL
 
 ### 13.2 MCP Commands
 
-- [ ] Start: Run "FlowCommand: Start MCP Server" → Status shows Running
-- [ ] Stop: Run "FlowCommand: Stop MCP Server" → Status shows Stopped
-- [ ] Toggle: Run "FlowCommand: Toggle MCP Server" → Status toggles
-- [ ] Show config: Run "FlowCommand: Show MCP Configuration" → URL displayed (default: http://localhost:3579/sse)
+- [x] Start: Run "FlowCommand: Start MCP Server" → Status shows Running
+- [x] Stop: Run "FlowCommand: Stop MCP Server" → Status shows Stopped
+- [x] Toggle: Run "FlowCommand: Toggle MCP Server" → Status toggles
+- [x] Show config: Run "FlowCommand: Show MCP Configuration" → URL displayed (default: http://localhost:3579/sse)
 
 ### 13.3 External Client (Optional)
 
-- [ ] Connect: Configure Kiro/Cursor with MCP URL → MCP client connects
-- [ ] ask_user: Use ask_user from external IDE → FlowCommand receives request
+- [x] Connect: Configure Kiro/Cursor with MCP URL → MCP client connects
+- [x] ask_user: Use ask_user from external IDE → FlowCommand receives request
 
 ---
 
@@ -398,9 +398,9 @@ Create a simple 3-step plan and call plan_review for approval.
 
 ### 18.2 Browser Push (Remote)
 
-- [ ] Permission: Open remote, click "Allow" on notification prompt → Permission granted
+- [x] Permission: Open remote, click "Allow" on notification prompt → Permission granted (Note: Blocked on iOS Safari due to HTTP)
 - [x] Trigger: Switch tabs, trigger ask_user → Browser notification appears with question text 
-- [ ] Click: Click notification → Focuses FlowCommand tab
+- [x] Click: Click notification → Focuses FlowCommand tab (Note: Falls back to visual toast if permission denied)
 
 ### 18.3 Sound Toggle
 
@@ -413,13 +413,13 @@ Create a simple 3-step plan and call plan_review for approval.
 
 ### 19.1 Permission Button (REMOVED)
 
-- [ ] Button display: Open remote on mobile → Bell icon 🔔 visible in header 
-- [ ] Request permission: Tap bell → Permission prompt appears (iOS 16.4+) 
-- [ ] Granted state: Grant permission → Bell icon solid (no dot) 
+- [x] Button display: Open remote on mobile → Bell icon 🔔 visible in header (REMOVED - see Known Limitations)
+- [x] Request permission: Tap bell → Permission prompt appears (iOS 16.4+) (REMOVED)
+- [x] Granted state: Grant permission → Bell icon solid (no dot) (REMOVED)
 
 ### 19.2 Native vs Toast
 
-- [ ] Toast (permission denied): Trigger ask_user → Blue visual toast at top of screen, auto-hides after 5s
+- [x] Toast (permission denied): Trigger ask_user → Blue visual toast at top of screen, auto-hides after 5s (Fixed: max-height 120px)
 
 ---
 

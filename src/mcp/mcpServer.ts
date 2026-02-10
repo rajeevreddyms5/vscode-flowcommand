@@ -248,9 +248,15 @@ export class McpServerManager {
                 }
             });
 
-            await new Promise<void>((resolve) => {
-                this.server?.listen(this.port, '127.0.0.1', () => resolve());
-            });
+            // Add timeout to prevent hanging if listen never completes
+            await Promise.race([
+                new Promise<void>((resolve) => {
+                    this.server?.listen(this.port, '127.0.0.1', () => resolve());
+                }),
+                new Promise<void>((_, reject) => {
+                    setTimeout(() => reject(new Error('Server listen timeout after 10 seconds')), 10000);
+                })
+            ]);
 
             this._isRunning = true;
 

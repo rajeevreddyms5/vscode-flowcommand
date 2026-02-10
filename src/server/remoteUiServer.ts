@@ -294,7 +294,11 @@ export class RemoteUiServer implements vscode.Disposable {
             const timeout = setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
-                    testServer.close(() => {});
+                    try {
+                        testServer.close(() => {});
+                    } catch (e) {
+                        // Server may already be closing/closed
+                    }
                     resolve(false); // Assume unavailable on timeout
                 }
             }, 5000);
@@ -1474,6 +1478,22 @@ self.addEventListener('fetch', event => {
         .autocomplete-dropdown {
             background-color: var(--vscode-editorWidget-background, #252526);
             backdrop-filter: blur(8px);
+            opacity: 1;
+            border: 1px solid var(--vscode-editorWidget-border, #454545);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        
+        .autocomplete-list {
+            background-color: var(--vscode-editorWidget-background, #252526);
+        }
+        
+        .autocomplete-item {
+            background-color: var(--vscode-editorWidget-background, #252526);
+        }
+        
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: var(--vscode-list-hoverBackground, #2a2d2e);
         }
         
         /* Connection status indicator */
@@ -2785,6 +2805,8 @@ self.addEventListener('fetch', event => {
         // Visual notification fallback (for browsers that don't support Web Notifications)
         function showVisualNotification(prompt, color) {
             var bgColor = color || '#0078d4';
+            // Truncate long messages for the visual toast
+            var displayText = prompt.length > 200 ? prompt.substring(0, 197) + '...' : prompt;
             // Create toast notification
             let toast = document.getElementById('notification-toast');
             if (!toast) {
@@ -2792,8 +2814,8 @@ self.addEventListener('fetch', event => {
                 toast.id = 'notification-toast';
                 document.body.appendChild(toast);
             }
-            toast.style.cssText = 'position:fixed;top:0;left:0;right:0;background:' + bgColor + ';color:white;padding:12px 16px;z-index:10000;box-shadow:0 2px 12px rgba(0,0,0,0.3);font-size:14px;line-height:1.5;display:block;animation:slideIn 0.3s ease;word-wrap:break-word;white-space:pre-wrap;cursor:pointer;';
-            toast.textContent = prompt;
+            toast.style.cssText = 'position:fixed;top:0;left:0;right:0;background:' + bgColor + ';color:white;padding:12px 16px;z-index:10000;box-shadow:0 2px 12px rgba(0,0,0,0.3);font-size:14px;line-height:1.4;display:block;animation:slideIn 0.3s ease;cursor:pointer;max-height:120px;overflow:hidden;text-overflow:ellipsis;';
+            toast.textContent = displayText;
             // Auto-hide after 5 seconds
             clearTimeout(toast._hideTimer);
             toast._hideTimer = setTimeout(function() { toast.style.display = 'none'; }, 5000);
@@ -3705,11 +3727,19 @@ self.addEventListener('fetch', event => {
         this._debugOutput = [];
         
         if (this._io) {
-            this._io.close();
+            try {
+                this._io.close();
+            } catch (e) {
+                console.error('[FlowCommand] Error closing Socket.IO:', e);
+            }
             this._io = null;
         }
         if (this._server) {
-            this._server.close();
+            try {
+                this._server.close();
+            } catch (e) {
+                console.error('[FlowCommand] Error closing HTTP server:', e);
+            }
             this._server = null;
         }
         this._authenticatedSockets.clear();

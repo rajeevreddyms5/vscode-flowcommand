@@ -517,16 +517,23 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         const { exec } = require('child_process');
         const platform = process.platform;
 
+        // Error callback to prevent process leaks and unhandled rejections
+        const onError = (err: Error | null) => {
+            if (err) {
+                // Sound playing failed - not critical, ignore silently
+            }
+        };
+
         try {
             if (platform === 'win32') {
                 // Windows: Use PowerShell to play system exclamation sound
-                exec('[System.Media.SystemSounds]::Exclamation.Play()', { shell: 'powershell.exe' });
+                exec('[System.Media.SystemSounds]::Exclamation.Play()', { shell: 'powershell.exe' }, onError);
             } else if (platform === 'darwin') {
                 // macOS: Use afplay with system sound
-                exec('afplay /System/Library/Sounds/Tink.aiff 2>/dev/null || printf "\\a"');
+                exec('afplay /System/Library/Sounds/Tink.aiff 2>/dev/null || printf "\\a"', onError);
             } else {
                 // Linux: Try multiple methods
-                exec('paplay /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || printf "\\a"');
+                exec('paplay /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || printf "\\a"', onError);
             }
         } catch (e) {
             // Sound playing failed - not critical

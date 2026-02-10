@@ -360,43 +360,7 @@
         var modalContent = document.createElement('div');
         modalContent.className = 'settings-modal-content';
 
-        // Sound section
-        var soundSection = document.createElement('div');
-        soundSection.className = 'settings-section';
-        soundSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-unmute"></span> Sound</div>' +
-            '<div class="toggle-switch active" id="sound-toggle" role="switch" aria-checked="true" aria-label="Enable notification sound" tabindex="0"></div>' +
-            '</div>';
-        modalContent.appendChild(soundSection);
-
-        // Desktop Notification section
-        var desktopNotifSection = document.createElement('div');
-        desktopNotifSection.className = 'settings-section';
-        desktopNotifSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-bell"></span> Desktop Notification</div>' +
-            '<div class="toggle-switch active" id="desktop-notification-toggle" role="switch" aria-checked="true" aria-label="Enable desktop notification popup" tabindex="0"></div>' +
-            '</div>';
-        modalContent.appendChild(desktopNotifSection);
-
-        // Auto-Focus Panel section
-        var autoFocusSection = document.createElement('div');
-        autoFocusSection.className = 'settings-section';
-        autoFocusSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-pin"></span> Auto-Focus Panel</div>' +
-            '<div class="toggle-switch active" id="auto-focus-panel-toggle" role="switch" aria-checked="true" aria-label="Auto-focus FlowCommand panel on new question" tabindex="0"></div>' +
-            '</div>';
-        modalContent.appendChild(autoFocusSection);
-
-        // Mobile Notification section
-        var mobileNotifSection = document.createElement('div');
-        mobileNotifSection.className = 'settings-section';
-        mobileNotifSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-device-mobile"></span> Mobile Notification</div>' +
-            '<div class="toggle-switch" id="mobile-notification-toggle" role="switch" aria-checked="false" aria-label="Enable mobile browser push notification" tabindex="0"></div>' +
-            '</div>';
-        modalContent.appendChild(mobileNotifSection);
-
-        // Interactive approval section - toggle interactive Yes/No + choices UI
+        // === Interactive Approval (TOP - standalone) ===
         var approvalSection = document.createElement('div');
         approvalSection.className = 'settings-section';
         approvalSection.innerHTML = '<div class="settings-section-header">' +
@@ -405,13 +369,46 @@
             '</div>';
         modalContent.appendChild(approvalSection);
 
-        // Note: Reusable Prompts section removed from settings - use dedicated prompts modal (🏷️ icon) instead
+        // === NOTIFICATIONS (Collapsible Group) ===
+        var notificationsGroup = document.createElement('div');
+        notificationsGroup.className = 'settings-group';
+        notificationsGroup.id = 'notifications-group';
+        notificationsGroup.innerHTML = 
+            '<div class="settings-group-header" id="notifications-group-toggle">' +
+            '<span class="codicon codicon-chevron-down settings-group-chevron"></span>' +
+            '<span class="settings-group-title">Notifications</span>' +
+            '</div>' +
+            '<div class="settings-group-content">' +
+            // Sound
+            '<div class="settings-section"><div class="settings-section-header">' +
+            '<div class="settings-section-title"><span class="codicon codicon-unmute"></span> Sound</div>' +
+            '<div class="toggle-switch active" id="sound-toggle" role="switch" aria-checked="true" aria-label="Enable notification sound" tabindex="0"></div>' +
+            '</div></div>' +
+            // Desktop Notification
+            '<div class="settings-section"><div class="settings-section-header">' +
+            '<div class="settings-section-title"><span class="codicon codicon-bell"></span> Desktop Notification</div>' +
+            '<div class="toggle-switch active" id="desktop-notification-toggle" role="switch" aria-checked="true" aria-label="Enable desktop notification popup" tabindex="0"></div>' +
+            '</div></div>' +
+            // Auto-Focus Panel
+            '<div class="settings-section"><div class="settings-section-header">' +
+            '<div class="settings-section-title"><span class="codicon codicon-pin"></span> Auto-Focus Panel</div>' +
+            '<div class="toggle-switch active" id="auto-focus-panel-toggle" role="switch" aria-checked="true" aria-label="Auto-focus FlowCommand panel on new question" tabindex="0"></div>' +
+            '</div></div>' +
+            // Mobile Notification
+            '<div class="settings-section"><div class="settings-section-header">' +
+            '<div class="settings-section-title"><span class="codicon codicon-device-mobile"></span> Mobile Notification</div>' +
+            '<div class="toggle-switch" id="mobile-notification-toggle" role="switch" aria-checked="false" aria-label="Enable mobile browser push notification" tabindex="0"></div>' +
+            '</div></div>' +
+            '</div>';
+        modalContent.appendChild(notificationsGroup);
 
-        // Instruction Injection section
+        // === INSTRUCTION INJECTION (with divider header) ===
         var instructionSection = document.createElement('div');
         instructionSection.className = 'settings-section';
-        instructionSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-symbol-misc"></span> Instruction Injection</div>' +
+        instructionSection.innerHTML = 
+            '<div class="settings-divider-header">' +
+            '<span class="codicon codicon-symbol-misc"></span>' +
+            '<span class="settings-divider-title">Instruction Injection</span>' +
             '</div>' +
             '<div class="settings-section-description">Injects FlowCommand instructions into Copilot so it always calls ask_user and plan_review. Injection is applied at <strong>workspace level</strong> — it only affects this workspace. Choose a method and click Inject.</div>' +
             '<div class="form-row" style="margin-top:8px;">' +
@@ -437,11 +434,13 @@
             '</div>';
         modalContent.appendChild(instructionSection);
 
-        // MCP Server section (advanced)
+        // === MCP SERVER (with divider header) ===
         var mcpSection = document.createElement('div');
         mcpSection.className = 'settings-section';
-        mcpSection.innerHTML = '<div class="settings-section-header">' +
-            '<div class="settings-section-title"><span class="codicon codicon-plug"></span> MCP Server</div>' +
+        mcpSection.innerHTML = 
+            '<div class="settings-divider-header">' +
+            '<span class="codicon codicon-plug"></span>' +
+            '<span class="settings-divider-title">MCP Server</span>' +
             '</div>' +
             '<div class="settings-section-description">Advanced: Control the local MCP server used by external tools. The URL is used for client configuration.</div>' +
             '<div class="form-row" style="margin-top:8px;">' +
@@ -706,6 +705,18 @@
                 if (e.target === settingsModalOverlay) closeSettingsModal();
             });
         }
+        
+        // Notifications group collapsible toggle
+        var notificationsGroupToggle = document.getElementById('notifications-group-toggle');
+        if (notificationsGroupToggle) {
+            notificationsGroupToggle.addEventListener('click', function() {
+                var group = document.getElementById('notifications-group');
+                if (group) {
+                    group.classList.toggle('collapsed');
+                }
+            });
+        }
+        
         if (soundToggle) {
             soundToggle.addEventListener('click', toggleSoundSetting);
             soundToggle.addEventListener('keydown', function (e) {

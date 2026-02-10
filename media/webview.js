@@ -1515,38 +1515,22 @@
 
     /**
      * Show/hide the pending input count badge at the top of the chat.
-     * Only shown in remote UI mode — the VS Code sidebar uses the native view.badge instead.
+     * In remote UI mode, we rely solely on the bell icon badge in the header bar,
+     * so this in-content banner is only used in the VS Code sidebar (native badge).
+     * Actually, the VS Code sidebar uses the native view.badge instead, so this
+     * function is effectively a no-op now — the bell icon badge count is the
+     * single notification indicator for remote UI.
      */
     function updatePendingInputBadge(count) {
-        // Skip in VS Code sidebar — the native sidebar badge is sufficient
-        // Only show in remote UI (browser/PWA) where there's no native badge
-        if (typeof acquireVsCodeApi === 'function' && !window.__isRemoteMode) {
-            return;
+        // Remove any existing in-content badge — we use only the bell icon badge
+        var existingBadge = document.getElementById('pending-input-badge');
+        if (existingBadge) {
+            existingBadge.classList.add('hidden');
+            existingBadge.classList.remove('badge-pulse');
         }
-        var badge = document.getElementById('pending-input-badge');
-        if (count > 0) {
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.id = 'pending-input-badge';
-                badge.className = 'pending-input-badge';
-                // Insert at the top of the chat container
-                var chatContainer = document.getElementById('chat-container');
-                if (chatContainer) {
-                    chatContainer.insertBefore(badge, chatContainer.firstChild);
-                }
-            }
-            badge.innerHTML = '<span class="codicon codicon-bell"></span> ' +
-                count + ' pending input' + (count > 1 ? 's' : '') +
-                ' — AI is waiting for your response';
-            badge.classList.remove('hidden');
-            badge.classList.remove('badge-pulse');
-            // Trigger reflow for animation restart
-            void badge.offsetWidth;
-            badge.classList.add('badge-pulse');
-        } else if (badge) {
-            badge.classList.add('hidden');
-            badge.classList.remove('badge-pulse');
-        }
+        // No-op: VS Code sidebar uses native view.badge,
+        // Remote UI uses the bell icon badge count in the header bar.
+        return;
     }
 
     function showPendingToolCall(id, prompt, isApproval, choices, context) {

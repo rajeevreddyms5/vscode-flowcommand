@@ -963,9 +963,8 @@ export class RemoteUiServer implements vscode.Disposable {
      */
     private _getServiceWorker(): string {
         return `
-const CACHE_NAME = 'flowcommand-remote-v1';
+const CACHE_NAME = 'flowcommand-remote-v2';
 const ASSETS = [
-    '/app',
     '/manifest.json',
     '/media/codicon.css',
     '/media/main.css',
@@ -974,13 +973,33 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', event => {
+    // Force new service worker to activate immediately
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(ASSETS))
     );
 });
 
+self.addEventListener('activate', event => {
+    // Clean up old caches
+    event.waitUntil(
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+        ).then(() => self.clients.claim())
+    );
+});
+
 self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    // Always fetch app HTML from network (so UI updates are immediate)
+    if (url.pathname === '/app' || url.pathname === '/') {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request))
+        );
+        return;
+    }
+    // Static assets: cache-first with network fallback
     event.respondWith(
         caches.match(event.request)
             .then(response => response || fetch(event.request))
@@ -3778,6 +3797,15 @@ self.addEventListener('fetch', event => {
             }
         });
         
+        // Pending badge bell button — scroll to pending question when clicked
+        document.getElementById('remote-pending-badge-btn')?.addEventListener('click', () => {
+            // Scroll to the pending question area (input area or pending message)
+            var inputArea = document.querySelector('.input-area');
+            if (inputArea) {
+                inputArea.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+        });
+
         // Prompts modal button handler  
         document.getElementById('prompts-modal-btn')?.addEventListener('click', () => {
             if (window.dispatchVSCodeMessage) {

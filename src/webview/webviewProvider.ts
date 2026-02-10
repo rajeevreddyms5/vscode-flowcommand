@@ -544,28 +544,40 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
      * (e.g., user answers from remote browser while sidebar is collapsed).
      */
     private _updateBadge(): void {
+        const askUserCount = this._currentToolCallId ? 1 : 0;
+        const queuedCount = this._queuedAgentRequests.length;
+        const total = askUserCount + queuedCount + this._pendingPlanReviewCount;
+
+        // 1. Try to set the native VS Code sidebar badge.
+        //    Isolated in its own try/catch so a failure (e.g. stale disposed view)
+        //    never prevents the broadcast below from executing.
         const view = this._view || this._viewForBadge;
-        if (!view) { return; }
-
-        try {
-            const askUserCount = this._currentToolCallId ? 1 : 0;
-            const queuedCount = this._queuedAgentRequests.length;
-            const total = askUserCount + queuedCount + this._pendingPlanReviewCount;
-
-            if (total > 0) {
-                view.badge = {
-                    value: total,
-                    tooltip: `${total} pending input${total > 1 ? 's' : ''} — AI is waiting for your response`
-                };
-            } else {
-                view.badge = undefined;
+        if (view) {
+            try {
+                if (total > 0) {
+                    view.badge = {
+                        value: total,
+                        tooltip: `${total} pending input${total > 1 ? 's' : ''} — AI is waiting for your response`
+                    };
+                } else {
+                    view.badge = undefined;
+                }
+            } catch {
+                // Badge API failure on a stale/disposed view reference — ignore.
+                // When the sidebar re-opens, resolveWebviewView will sync the badge.
+                // Clear the stale fallback so we don't keep hitting this error.
+                if (view === this._viewForBadge) {
+                    this._viewForBadge = undefined;
+                }
             }
+        }
 
-            // Broadcast count to webview + remote clients for in-content badge
+        // 2. ALWAYS broadcast count to webview + remote clients for in-content badge.
+        //    This must execute regardless of whether the native badge set succeeded.
+        try {
             this._postMessage({ type: 'pendingInputCount', count: total });
         } catch {
-            // Badge API failure should never break tool execution
-            // This also catches errors if _viewForBadge is a stale/disposed reference
+            // Broadcast failure should never break tool execution
         }
     }
 
@@ -776,8 +788,13 @@ export class FlowCommandWebviewProvider implements vscode.WebviewViewProvider, v
         // Clear session calls map (O(1) lookup cache)
         this._currentSessionCallsMap.clear();
 
-        // Clear pending requests (reject any waiting promises)
+        // Resolve + clear pending requests so promises don't hang
+        for (const [, resolve] of this._pendingRequests) {
+            resolve({ value: '[CANCELLED: Extension disposed]', queue: false, attachments: [], cancelled: true });
+        }
         this._pendingRequests.clear();
+        this._currentToolCallId = null;
+        this._currentMultiQuestions = null;
 
         // Clear queued agent requests
         for (const queued of this._queuedAgentRequests) {

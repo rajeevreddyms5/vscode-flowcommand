@@ -3815,3 +3815,60 @@ button#send-btn:disabled {
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* --- Waiting for Input Indicator --- */
+#waiting-indicator {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--vscode-editorInfo-background, rgba(240, 136, 62, 0.08));
+  border-bottom: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  transition: background 0.2s;
+}
+
+#waiting-indicator:hover {
+  background: var(--vscode-list-hoverBackground, rgba(240, 136, 62, 0.14));
+}
+
+body.has-pending-toolcall #waiting-indicator {
+  display: flex;
+}
+
+.waiting-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f0883e;
+  animation: waiting-pulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.waiting-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.9;
+}
+
+@keyframes waiting-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Subtle glow on input wrapper when AI is waiting */
+body.has-pending-toolcall .input-wrapper {
+  border-color: rgba(240, 136, 62, 0.5);
+  box-shadow: 0 0 0 1px rgba(240, 136, 62, 0.15);
+}

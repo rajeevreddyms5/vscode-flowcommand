@@ -123,6 +123,7 @@
       createApprovalModal();
       createSettingsModal();
       createPromptsModal();
+      createWaitingIndicator();
       bindEventListeners();
       unlockAudioOnInteraction(); // Enable audio after first user interaction
       console.log(
@@ -651,6 +652,38 @@
     promptsModal.appendChild(content);
     promptsModalOverlay.appendChild(promptsModal);
     document.body.appendChild(promptsModalOverlay);
+  }
+
+  /**
+   * Create the "AI is waiting for your input" indicator.
+   * Placed inside .input-wrapper at the top. Visibility is controlled
+   * purely by CSS: body.has-pending-toolcall #waiting-indicator { display: flex }
+   * Clicking scrolls the pending question into view.
+   */
+  function createWaitingIndicator() {
+    var wrapper = document.querySelector(".input-wrapper");
+    if (!wrapper) return;
+
+    var indicator = document.createElement("div");
+    indicator.id = "waiting-indicator";
+
+    var dot = document.createElement("span");
+    dot.className = "waiting-dot";
+    indicator.appendChild(dot);
+
+    var text = document.createElement("span");
+    text.className = "waiting-text";
+    text.textContent = "AI is waiting for your input";
+    indicator.appendChild(text);
+
+    indicator.addEventListener("click", function () {
+      if (pendingMessage) {
+        pendingMessage.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+
+    // Insert at the top of .input-wrapper (before queue section or input)
+    wrapper.insertBefore(indicator, wrapper.firstChild);
   }
 
   function bindEventListeners() {
@@ -3369,6 +3402,9 @@
       comments: comments,
     };
 
+    // Mark as pending so the waiting indicator shows
+    document.body.classList.add("has-pending-toolcall");
+
     // Bind events
     var approveBtn = document.getElementById("pr-approve-" + reviewId);
     var rejectBtn = document.getElementById("pr-reject-" + reviewId);
@@ -3582,6 +3618,8 @@
       activePlanReview.overlay.parentNode.removeChild(activePlanReview.overlay);
     }
     activePlanReview = null;
+    // Clear pending state so the waiting indicator hides
+    document.body.classList.remove("has-pending-toolcall");
     console.log("[FlowCommand] closePlanReviewModal: modal closed");
   }
 

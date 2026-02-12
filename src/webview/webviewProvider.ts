@@ -361,6 +361,13 @@ export class FlowCommandWebviewProvider
   // Flag to track if current message is from remote client (to avoid cross-triggering UI)
   private _isRemoteMessageContext: boolean = false;
 
+  // Active plan review state — tracked for remote client reconnection/refresh
+  private _activePlanReview: {
+    reviewId: string;
+    title: string;
+    plan: string;
+  } | null = null;
+
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _context: vscode.ExtensionContext,
@@ -580,6 +587,8 @@ export class FlowCommandWebviewProvider
     title: string,
     plan: string,
   ): void {
+    // Track active plan review for remote client reconnection/refresh
+    this._activePlanReview = { reviewId, title, plan };
     const message = {
       type: "planReviewPending" as const,
       reviewId,
@@ -595,6 +604,8 @@ export class FlowCommandWebviewProvider
    * Dismisses any remote plan review modal.
    */
   public broadcastPlanReviewCompleted(reviewId: string, status: string): void {
+    // Clear active plan review state
+    this._activePlanReview = null;
     const message = {
       type: "planReviewCompleted" as const,
       reviewId,
@@ -1175,6 +1186,7 @@ export class FlowCommandWebviewProvider
       choices?: ParsedChoice[];
     } | null;
     pendingMultiQuestion: { requestId: string; questions: Question[] } | null;
+    pendingPlanReview: { reviewId: string; title: string; plan: string } | null;
     queuedAgentRequestCount: number;
     settings: {
       soundEnabled: boolean;
@@ -1234,6 +1246,7 @@ export class FlowCommandWebviewProvider
       persistedHistory: this._persistedHistory,
       pendingRequest,
       pendingMultiQuestion,
+      pendingPlanReview: this._activePlanReview,
       queuedAgentRequestCount: this._queuedAgentRequests.length,
       settings: {
         soundEnabled: this._soundEnabled,

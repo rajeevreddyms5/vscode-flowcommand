@@ -3386,7 +3386,7 @@ self.addEventListener('fetch', event => {
 
                 if (window.dispatchVSCodeMessage) {
                     if (state.queue !== undefined) {
-                        window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled });
+                        window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled, paused: state.queuePaused });
                     }
                     if (state.currentSession) {
                         window.dispatchVSCodeMessage({ type: 'updateCurrentSession', history: state.currentSession });

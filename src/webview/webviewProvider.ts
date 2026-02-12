@@ -1176,6 +1176,7 @@ export class FlowCommandWebviewProvider
   public getRemoteState(): {
     queue: QueuedPrompt[];
     queueEnabled: boolean;
+    queuePaused: boolean;
     currentSession: ToolCallEntry[];
     persistedHistory: ToolCallEntry[];
     pendingRequest: {
@@ -1242,6 +1243,7 @@ export class FlowCommandWebviewProvider
     return {
       queue: this._promptQueue,
       queueEnabled: this._queueEnabled,
+      queuePaused: this._queuePaused,
       currentSession: this._currentSessionCalls,
       persistedHistory: this._persistedHistory,
       pendingRequest,

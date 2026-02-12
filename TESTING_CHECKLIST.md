@@ -1,451 +1,438 @@
-# FlowCommand - Manual Testing Checklist
+# FlowCommand — Interactive Testing Checklist
 
-A structured testing guide with clear actions and pass criteria for each feature.
+> **How to use**: Tell the AI "start FlowCommand tests" or "run tests from TESTING_CHECKLIST.md". The AI will execute each test group, run prompts where needed, and ask you to verify PASS or FAIL for each item.
+
+---
+
+## AI Testing Instructions
+
+When the user asks to "start tests" or "run the testing checklist":
+
+1. Read this file and present each test section one at a time.
+2. For tests with **AI Action**, execute the action (e.g., call `ask_user`, `plan_review`, or print instructions).
+3. After each test group, ask the user: **"PASS or FAIL? (Add notes if FAIL)"**
+4. Track results using `manage_todo_list`.
+5. At the end, present a summary report of all PASS/FAIL results.
+6. Skip tests marked `[MANUAL]` — just tell the user what to verify and wait for their response.
 
 ---
 
 ## Prerequisites
 
-Before testing, ensure:
-- [ ] Extension installed (VSIX or Marketplace)
-- [ ] Workspace folder open in VS Code
-- [ ] GitHub Copilot Chat installed and enabled
+Before starting tests, verify:
+
+- [ ] Extension is installed (VSIX or dev host)
+- [ ] Workspace folder is open in VS Code
+- [ ] GitHub Copilot Chat is installed and enabled
+- [ ] Remote server is NOT running (will be started during tests)
 
 ---
 
-## 1. Extension Setup
+## Test Group 1: Extension Basics
 
-### 1.1 Extension Activation
+### T1.1 — Extension Activation `[MANUAL]`
+**Verify**: FlowCommand icon (FC logo) is visible in the Activity Bar. Click it — panel opens with queue area and input field.
 
-- [x] Activity bar icon: Open VS Code with a workspace → FlowCommand icon (FC logo) visible in Activity Bar
-- [x] Panel opens: Click FlowCommand icon → Panel opens showing queue area and input field
-
-### 1.2 Title Bar Buttons
-
-- [x] Icons present: Look at FlowCommand panel title bar → 5 icons visible: 📡 Remote, 📜 History, 🏷️ Prompts, 🗑️ Clear, ⚙️ Settings
-- [x] Tooltips work: Hover over each icon → Tooltip shows function name
+### T1.2 — Title Bar Icons `[MANUAL]`
+**Verify**: Panel title bar has 5 icons: 📡 Remote, 📜 History, 🏷️ Prompts, 🗑️ Clear, ⚙️ Settings. Hover each — tooltips appear.
 
 ---
 
-## 2. Queue Mode
+## Test Group 2: Queue Mode
 
-### 2.1 Queue Mode Toggle
+### T2.1 — Queue Toggle `[MANUAL]`
+**Verify**: Click mode dropdown → toggle between "Queue Mode" and "Normal Mode". UI label and icon update correctly.
 
-- [x] Default state: Open FlowCommand panel (already done) → "Queue Mode" toggle is ON
-- [x] Toggle OFF: Click the toggle → Changes to "Normal Mode"
-- [x] Toggle ON: Click toggle again → Returns to "Queue Mode"
+### T2.2 — Add Prompts to Queue `[MANUAL]`
+**Verify**: In Queue Mode, type "Test prompt 1" and press Enter → appears in queue. Add 2 more → count shows "3 items".
 
-### 2.2 Add Prompts to Queue
+### T2.3 — Queue Management `[MANUAL]`
+**Verify**: Hover queue item → edit/delete buttons appear. Delete one → count decreases. Edit one → text updates. Drag to reorder → order persists.
 
-- [x] Add single prompt: Type "Test prompt 1" and press Enter → Prompt appears in queue list, input clears
-- [x] Queue count: Add 2 more prompts → Queue shows "3 items"
+### T2.4 — Queue Pause Button Always Visible
+**Verify**: With Queue Mode ON and queue EMPTY, the pause button (⏸️) should still be visible in the queue header. *(Fix #4)*
 
-### 2.3 Queue Management
+### T2.5 — Pause Behavior `[MANUAL]`
+**Verify**: Click ⏸️ → icon changes to ▶️, "(Paused)" label appears, yellow border shown, items dimmed.
 
-- [x] Edit/Delete buttons: Hover over queue item → ✏️ and 🗑️ buttons appear
-- [x] Delete prompt: Click 🗑️ on an item → Item removed, count decreases
-- [x] Edit prompt: Click ✏️, change text, save → Item text updates
-- [x] Reorder: Drag item to new position → Order changes persist
+### T2.6 — Paused Queue Does Not Auto-Consume
 
----
-
-## 3. Normal Mode
-
-### 3.1 Normal Mode Behavior
-
-- [x] Switch mode: Turn OFF Queue Mode → UI shows "Normal Mode"
-- [x] No pending request: Type text and press Enter → Nothing happens (no error)
-- [x] With pending request: Trigger ask_user from Copilot, then type response → Response sent to Copilot
-
----
-
-## 4. AI Tool Integration (ask_user)
-
-### 4.1 Queue Auto-Response
-
-- [x] Setup: Add "Yes, proceed" to queue → Queue shows 1 item
-- [x] Trigger: In Copilot: "Ask me if I want to proceed" → Queue item consumed, response sent, history entry created
-
-**Copilot Test Prompt:**
-```
-Ask me if I want to proceed with a test task using ask_user. Wait for my response.
-```
-
-### 4.2 Notifications (Normal Mode)
-
-- [x] Enable settings: Turn ON: Sound, Desktop Notification, Auto-Focus → All toggles checked
-- [x] Trigger notification: In Copilot: "Ask me a question" → Sound plays, notification appears, panel auto-focuses
-
-### 4.3 Yes/No Buttons
-
-- [x] Button display: Copilot asks yes/no question → Yes/No buttons appear
-- [x] Button click: Click "Yes" → Response "Yes" sent to Copilot
-
-**Copilot Test Prompt:**
-```
-Ask me a simple yes or no confirmation: "Should I proceed?"
-```
-
----
-
-## 5. Plan Review
-
-### 5.1 Plan Review Panel
-
-- [x] Panel opens: Copilot creates and presents a plan → New editor tab opens with 70/30 split layout
-- [x] Markdown renders: View plan content → Headers, lists, code blocks display correctly
-- [x] Comment icon: Hover over plan section → 💬 icon appears
-- [x] Add comment: Click 💬, type comment, save → Comment appears in right sidebar
-
-**Copilot Test Prompt:**
-```
-Create a 3-step plan for setting up a Node.js project and present it using plan_review.
-```
-
-### 5.2 Plan Review Actions
-
-- [x] Approve: Click "Approve" → Panel closes, Copilot proceeds
-- [x] Request changes: Add comment, click "Request Changes" → Panel closes, Copilot revises plan
-- [x] Cancel: Click X button or "Cancel" → Plan cancelled, Copilot stops
-
-### 5.3 Enter Key for Comments
-
-- [x] Enter saves: Type comment, press Enter → Comment added, input clears
-- [x] Shift+Enter: Type, press Shift+Enter → New line added (no save)
-
----
-
-## 6. File & Folder References
-
-### 6.1 File Attachment
-
-- [x] Trigger autocomplete: Type `#` in input → Dropdown appears
-- [x] Search files: Type "pack" → Files matching shown (e.g., package.json)
-- [x] Select file: Click a file → File chip appears in input
-
-### 6.2 Folder Attachment
-
-- [x] Folder search: Type `#src` → "src" folder shown
-- [x] Select folder: Click folder → Folder chip appears in input
-
----
-
-## 7. Image Support
-
-### 7.1 Paste Image
-
-- [x] Screenshot paste: Take screenshot (Win+Shift+S), Ctrl+V in input → Image thumbnail appears
-- [x] Send with image: Press Enter to send → Image included in response
-
-### 7.2 Drag and Drop
-
-- [x] Drag image: Drag image file into input area → Drop zone highlights (Note: Does not work in VS Code due to webview limitations, but works in remote browser)
-- [x] Drop image: Release mouse → Image attached, thumbnail shown (Note: Does not work in VS Code due to webview limitations, but works in remote browser)
-
----
-
-## 8. History
-
-### 8.1 Session History
-
-- [x] View history: Scroll up in FlowCommand panel → "Current Session" entries visible
-- [x] Entry details: Expand an entry → Shows prompt and response
-
-### 8.2 Full History Modal
-
-- [x] Open modal: Click 📜 History button → History modal opens
-- [x] Clear history: Click "Clear History" → All entries removed
-
----
-
-## 9. Remote Server
-
-### 9.1 Start Server
-
-- [x] Start: Click 📡 Remote icon → Status bar shows "Remote: Active", QR code appears
-- [x] URL display: Check dialog → Local network URL displayed (e.g., http://192.168.x.x:3000)
-
-### 9.2 Connect from Device
-
-- [x] Access URL: Scan QR or type URL on phone → PIN entry page loads
-- [x] Authenticate: Enter 4-digit PIN → Remote UI loads with queue and input
-
-### 9.3 Remote Features
-
-- [x] Add prompt: Add prompt from phone → Appears in VS Code queue
-- [x] Send response: Submit response from phone → VS Code receives it
-- [x] Terminal tab: View terminal output tab → Shows VS Code terminal history
-- [x] Files tab: Browse files tab → Workspace files visible
-- [x] Theme sync: Change VS Code theme → Remote UI theme updates
-
-### 9.4 Stop Server
-
-- [x] Stop: Click 📡 icon again → Status bar no longer shows "Remote: Active"
-- [x] Client disconnect: Check phone → Shows "Disconnected"
-
----
-
-## 10. Settings
-
-### 10.1 Settings Modal
-
-- [x] Open: Click ⚙️ Settings → Modal opens
-
-### 10.2 Individual Settings
-
-- [x] Notification Sound: Toggle ON, trigger ask_user → Sound plays
-- [x] Desktop Notification: Toggle ON, trigger ask_user → VS Code notification popup appears
-- [x] Auto-Focus Panel: Toggle ON, trigger ask_user → FlowCommand panel auto-focuses
-- [x] Mobile Notification: Toggle ON, trigger from remote → Browser notification on phone
-- [x] Interactive Approval: Toggle OFF, trigger ask_user → Yes/No buttons do NOT appear
-
-### 10.3 Instruction Injection
-
-- [x] Set injection: Set to "copilotInstructionsMd", approve → .github/copilot-instructions.md created/updated
-- [x] Verify content: Open .github/copilot-instructions.md → FlowCommand rules present in file
-
----
-
-## 11. Reusable Prompts
-
-### 11.1 Create Prompt
-
-- [x] Open modal: Click 🏷️ Prompts → Modal opens
-- [x] Add prompt: Name: "test", Prompt: "Run all tests", Save → Prompt appears in list
-
-### 11.2 Use Slash Command
-
-- [x] Trigger dropdown: Type `/` in input → Available prompts shown
-- [x] Select prompt: Type `/test` and select → "Run all tests" inserted in input
-
-### 11.3 Prompt Template
-
-- [x] Set template: Click "Set as Template" on a prompt → Blue "Template" badge appears
-- [x] Template indicator: Look near input field → Template name shown
-- [x] Auto-append: Send a message → Template text automatically appended
-- [x] Remove template: Click ✕ on indicator → Template cleared
-
----
-
-## 12. Theme Support
-
-### 12.1 VS Code Theme
-
-- [x] Change theme: Ctrl+K Ctrl+T, select light theme → VS Code switches theme
-- [x] FlowCommand adapts: Check FlowCommand panel → Panel uses new theme colors
-- [x] Plan Review adapts: Open Plan Review → Panel uses new theme
-- [x] Remote adapts: Check connected remote → Remote UI theme matches
-
-### 12.2 Remote Theme
-
-- [x] Dark mode: Set system to Dark Mode → Remote landing page uses dark theme
-- [x] Light mode: Set system to Light Mode → Remote landing page uses light theme
-
----
-
-## 13. MCP Server (External IDEs)
-
-### 13.1 MCP Status (Settings)
-
-- [x] Open Settings: MCP Server section is visible under Settings (Advanced)
-- [x] Status: Click Start/Stop toggle → Status text updates (Running/Stopped)
-- [x] URL: When running, URL shows http://localhost:<port>/sse
-- [x] Copy URL: Click "Copy URL" → Clipboard contains MCP URL
-
-### 13.2 MCP Commands
-
-- [x] Start: Run "FlowCommand: Start MCP Server" → Status shows Running
-- [x] Stop: Run "FlowCommand: Stop MCP Server" → Status shows Stopped
-- [x] Toggle: Run "FlowCommand: Toggle MCP Server" → Status toggles
-- [x] Show config: Run "FlowCommand: Show MCP Configuration" → URL displayed (default: http://localhost:3579/sse)
-
-### 13.3 External Client (Optional)
-
-- [x] Connect: Configure Kiro/Cursor with MCP URL → MCP client connects
-- [x] ask_user: Use ask_user from external IDE → FlowCommand receives request
-
----
-
-## 14. Error Handling
-
-### 14.1 Network Issues
-
-- [x] Disconnect: Disconnect network while remote connected → Remote shows "Disconnected" message
-- [x] Reconnect: Reconnect network → Remote auto-reconnects
-
-### 14.2 Invalid References
-
-- [x] Bad file: Type `#nonexistentfile.xyz` → No results or "no matches" message (no crash)
-
----
-
-## 15. Queue Pause/Play
-
-### 15.1 Pause Button
-
-- [x] Button visible: Look at queue header → ⏸️ pause button visible
-- [x] Tooltip: Hover over button → "Pause queue processing" tooltip
-
-### 15.2 Pause Behavior
-
-- [x] Pause queue: Click ⏸️ button → Icon changes to ▶️, "(Paused)" label, yellow border, dimmed list
-- [x] No auto-respond: Trigger ask_user with items in paused queue → Question shown but queue NOT consumed
-- [x] Manual response: Type and send response → Response sent, queue unchanged
-
-**Copilot Test Prompt:**
+**AI Action**: Run this prompt in Copilot Chat:
 ```
 Ask me a simple question using ask_user. Do not proceed until I respond.
 ```
+**Verify**: With queue paused and items in queue, the question appears but queue items are NOT consumed. Type a manual response → it sends correctly.
 
-### 15.3 Resume Behavior
-
-- [x] Resume: Click ▶️ button → Icon changes to ⏸️, "(Paused)" removed, list normal
-- [x] Auto-respond works: Trigger ask_user → First queue item consumed
-
-### 15.4 Remote Sync
-
-- [x] Pause from VS Code: Pause queue in VS Code → Remote UI shows paused state
-- [x] Resume from Remote: Resume from Remote UI → VS Code shows resumed state
+### T2.7 — Resume Behavior `[MANUAL]`
+**Verify**: Click ▶️ → unpauses. Trigger another `ask_user` → first queue item auto-consumed.
 
 ---
 
-## 16. Interactive Approval Parsing
+## Test Group 3: AI Tool Integration (ask_user)
 
-### 16.1 Numbered Options (1. 2. 3.)
+### T3.1 — Basic ask_user
 
-- [x] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear
-
-**Copilot Test Prompt:**
+**AI Action**: Run in Copilot Chat:
 ```
-Ask: Which framework? 1. React 2. Vue 3. Angular. Wait for selection.
+Ask me: "What color do you prefer?" using ask_user. Wait for my response.
 ```
+**Verify**: Question appears in FlowCommand panel. Type a response → AI receives it and continues.
 
-### 16.2 Lettered Options (A. B. C.)
+### T3.2 — ask_user with Choices
 
-- [x] Trigger: Use AI prompt below → Buttons labeled `A`, `B`, `C` appear
-
-**Copilot Test Prompt:**
+**AI Action**: Run in Copilot Chat:
 ```
-Ask: Testing approach? A. Unit tests B. Integration tests C. Both. Wait for answer.
+Ask me to choose a database using ask_user with these choices: PostgreSQL, MongoDB, SQLite. Wait for my selection.
 ```
+**Verify**: Choice buttons appear, text input is HIDDEN. Buttons include "Other" (italic) and "Cancel" (red). *(Fix #2)*
+- Click a choice → response sent with that value
+- Click "Other" → text input reappears, choices hidden
+- Click "Cancel" → sends "User cancelled this question."
 
-### 16.3 Bullet Options (- item)
+### T3.3 — ask_user with Yes/No Approval
 
-- [x] Trigger: Use AI prompt below → Buttons show full text: `PostgreSQL`, `MongoDB`, `SQLite`
-
-**Copilot Test Prompt:**
+**AI Action**: Run in Copilot Chat:
 ```
-Ask: Database? - PostgreSQL - MongoDB - SQLite. Wait for response.
+Ask me: "Should I proceed with the deployment?" using ask_user. Wait for my answer.
 ```
+**Verify**: If Interactive Approval is ON in settings, "Yes" and "No" buttons appear (plus "Cancel" button). Text input is hidden. *(Fix #2)*
 
-### 16.4 Emoji Numbers (1️⃣ 2️⃣)
+### T3.4 — Notifications on ask_user
 
-- [x] Trigger: Use AI prompt below → Buttons labeled `1`, `2`, `3` appear
-
-**Copilot Test Prompt:**
+**AI Action**: Run in Copilot Chat:
 ```
-Ask: Color scheme? 1️⃣ Dark 2️⃣ Light 3️⃣ System. Wait for choice.
+Ask me: "Are you still there?" using ask_user. Wait for my response.
 ```
+**Verify** (with all notifications enabled in settings):
+- Sound plays (880Hz beep)
+- IDE notification popup appears labeled "IDE Notification" *(Fix #3)*
+- Panel auto-focuses (steals focus when Auto-Focus is ON) *(Fix #5)*
 
-### 16.5 Long Lists (10+ items)
+### T3.5 — Auto-Focus Panel Inversion Check
 
-- [x] Trigger: Use AI prompt with 10+ options → NO buttons appear (only text input)
-
-**Copilot Test Prompt:**
+**AI Action**: Run in Copilot Chat:
 ```
-Ask: Language? 1. JS 2. TS 3. Python 4. Go 5. Rust 6. Java 7. C# 8. Ruby 9. PHP 10. Swift. Wait.
+Ask me: "Test auto-focus" using ask_user. Wait for response.
+```
+**Verify**: *(Fix #5)*
+- Auto-Focus ON → panel steals focus (you're forced to look at it)
+- Auto-Focus OFF → panel does NOT steal focus (stays in background)
+
+### T3.6 — Queue Auto-Response
+
+**AI Action**: Add "Yes, go ahead" to the queue (unpaused). Then run in Copilot Chat:
+```
+Ask me if I want to proceed using ask_user. Wait for my response.
+```
+**Verify**: Queue item "Yes, go ahead" is auto-consumed. AI receives the response without manual input.
+
+### T3.7 — Waiting Indicator
+
+**AI Action**: Run in Copilot Chat:
+```
+Ask me: "Do you see the waiting indicator?" using ask_user. Wait for my response.
+```
+**Verify**: *(Feature #8)*
+- Pulsing orange dot + "AI is waiting for your input" text appears at top of input wrapper
+- Orange glow/border on input area
+- Clicking the indicator scrolls to the pending question
+- After responding, the indicator disappears
+
+---
+
+## Test Group 4: Multi-Question (ask_user with questions array)
+
+### T4.1 — Multi-Question Display
+
+**AI Action**: Run in Copilot Chat:
+```
+Ask me 3 questions at once using ask_user with the questions parameter:
+1. "What language?" with options: Python, JavaScript, Go
+2. "What framework?" (free text)
+3. "Testing approach?" with options: Unit, Integration, E2E (allow multiple selection)
+Wait for my answers.
+```
+**Verify**: All 3 questions appear in a form layout. Dropdowns, text inputs, and multi-select work correctly.
+
+---
+
+## Test Group 5: Plan Review
+
+### T5.1 — Plan Review Panel
+
+**AI Action**: Run in Copilot Chat:
+```
+Create a 3-step plan for building a REST API and present it using plan_review. Wait for my approval.
+```
+**Verify**:
+- New editor tab opens with plan content (markdown rendered)
+- 70/30 split layout (plan left, comments right)
+- Comment icons appear on hover over sections
+- Approve/Request Changes/Cancel buttons at bottom
+
+### T5.2 — Plan Review Actions `[MANUAL]`
+**Verify**:
+- Click "Approve" → panel closes, AI proceeds
+- (Trigger again) Add comment + "Request Changes" → AI revises the plan
+- (Trigger again) Click "Cancel" → AI stops
+
+### T5.3 — Waiting Indicator During Plan Review
+
+**AI Action**: Trigger plan_review (as in T5.1).
+**Verify**: The "AI is waiting for your input" pulsing indicator appears in the input area while plan review is open. *(Feature #8)*
+
+---
+
+## Test Group 6: Interactive Approval Parsing
+
+### T6.1 — Numbered Options
+
+**AI Action**: Run in Copilot Chat:
+```
+Ask: "Which framework? 1. React 2. Vue 3. Angular" using ask_user with these as choices. Wait for selection.
+```
+**Verify**: Buttons labeled with the options appear.
+
+### T6.2 — Lettered Options
+
+**AI Action**: Run in Copilot Chat:
+```
+Ask: "Testing approach? A. Unit tests B. Integration tests C. Both" using ask_user with these as choices. Wait for answer.
+```
+**Verify**: Buttons labeled with the options appear.
+
+---
+
+## Test Group 7: File & Image References
+
+### T7.1 — File Autocomplete `[MANUAL]`
+**Verify**: Type `#` in input → dropdown appears. Type "pack" → `package.json` shown. Select → chip appears.
+
+### T7.2 — Image Paste `[MANUAL]`
+**Verify**: Take screenshot (Win+Shift+S), Ctrl+V in input → image thumbnail appears. Send → included in response.
+
+---
+
+## Test Group 8: History
+
+### T8.1 — Session History `[MANUAL]`
+**Verify**: After running some ask_user tests, scroll up in panel → "Current Session" entries visible with prompt/response details.
+
+### T8.2 — History Modal `[MANUAL]`
+**Verify**: Click 📜 History icon → modal opens with past sessions. "Clear History" removes entries.
+
+---
+
+## Test Group 9: Remote Server
+
+### T9.1 — Start Server `[MANUAL]`
+**Verify**: Click 📡 Remote icon → status bar shows "FlowCommand" with broadcast icon. Dialog shows URL + QR code + PIN.
+
+### T9.2 — Connect from Browser `[MANUAL]`
+**Verify**: Open URL in browser → PIN page loads. Enter 4-digit PIN → Remote UI loads with queue, input, Chat/Files/Output tabs.
+
+### T9.3 — Remote ask_user Sync
+
+**AI Action** (with remote connected): Run in Copilot Chat:
+```
+Ask me: "Can you see this from both IDE and remote?" using ask_user. Wait for my response.
+```
+**Verify**:
+- Question appears in BOTH VS Code sidebar AND remote browser
+- Waiting indicator shows in BOTH *(Feature #8)*
+- Respond from VS Code → remote question clears, indicator disappears *(Sync verified)*
+- (Repeat and respond from remote) → VS Code question clears, indicator disappears
+
+### T9.4 — Remote Plan Review Sync
+
+**AI Action** (with remote connected): Run in Copilot Chat:
+```
+Create a simple 2-step plan and call plan_review. Wait for approval.
+```
+**Verify**: *(Fix #6)*
+- Plan review modal appears on remote browser
+- Close/Approve in VS Code → remote modal disappears
+- (Repeat and respond from remote) → VS Code panel closes
+
+### T9.5 — Remote Reconnect State Restore
+
+**AI Action**: Trigger an `ask_user`. While the question is pending:
+**Verify**: *(Fix #6, #7)*
+1. Click the refresh button in remote browser header → question re-appears, waiting indicator shows
+2. If queue was paused → still shows paused after refresh *(Fix #7)*
+3. If plan_review was active → plan review modal re-appears after refresh *(Fix #6)*
+
+### T9.6 — Remote Auto-Reconnect `[MANUAL]`
+**Verify**: Briefly lose connection (toggle airplane mode or disconnect WiFi) → remote shows "Disconnected. Reconnecting..." → auto-reconnects → state restored (pending question, queue pause state, plan review if active).
+
+### T9.7 — Remote Theme Sync `[MANUAL]`
+**Verify**: Change VS Code theme (Ctrl+K Ctrl+T) → remote browser theme updates to match.
+
+### T9.8 — Remote Queue Pause Sync `[MANUAL]`
+**Verify**: Pause queue in VS Code → remote shows paused. Resume from remote → VS Code shows resumed.
+
+### T9.9 — Stop Server `[MANUAL]`
+**Verify**: Click 📡 icon again → server stops. Remote shows "Disconnected".
+
+---
+
+## Test Group 10: Settings
+
+### T10.1 — Settings Modal `[MANUAL]`
+**Verify**: Click ⚙️ → modal opens with all settings.
+
+### T10.2 — Notification Sound Toggle `[MANUAL]`
+**Verify**: Toggle sound ON → trigger ask_user → beep plays. Toggle OFF → no beep.
+
+### T10.3 — IDE Notification Label
+**Verify**: Settings modal shows "IDE Notification" (not "Desktop Notification"). *(Fix #3)*
+
+### T10.4 — Auto-Focus Panel Toggle
+
+**AI Action**: Toggle Auto-Focus Panel OFF. Run in Copilot Chat:
+```
+Ask me: "Did focus stay?" using ask_user.
+```
+**Verify**: Panel does NOT steal focus. *(Fix #5)*
+
+Toggle Auto-Focus Panel ON. Repeat → panel DOES steal focus.
+
+### T10.5 — Interactive Approval Toggle `[MANUAL]`
+**Verify**: Toggle OFF → ask_user shows text input only (no Yes/No buttons). Toggle ON → buttons appear.
+
+---
+
+## Test Group 11: Instruction Injection
+
+### T11.1 — Default Instruction Text `[MANUAL]`
+**Verify**: In Settings, expand "Instruction Text" → default text contains: *(Fix #1)*
+- `## SUBAGENT RULES` section
+- `## AGENT RULES` with 4 rules
+- Rule 1: "ALWAYS call ask_user"
+- Rule 3: Stop signals ("end", "stop", "terminate", "quit")
+- Rule 4: `runSubagent` VERBATIM instructions
+
+### T11.2 — Injection Modes `[MANUAL]`
+**Verify**:
+- "copilotInstructionsMd" → creates/updates `.github/copilot-instructions.md`
+- "off" → removes FlowCommand section from file
+- Re-inject → section re-added
+
+---
+
+## Test Group 12: Reusable Prompts & Slash Commands
+
+### T12.1 — Create Prompt `[MANUAL]`
+**Verify**: Click 🏷️ Prompts → Add: Name "test", Prompt "Run all tests" → appears in list.
+
+### T12.2 — Slash Command `[MANUAL]`
+**Verify**: Type `/` in input → dropdown shows. Type `/test` → "Run all tests" inserted.
+
+### T12.3 — Prompt Template `[MANUAL]`
+**Verify**: Set a prompt as template → blue badge appears. Send message → template text appended. Remove template → cleared.
+
+---
+
+## Test Group 13: MCP Server
+
+### T13.1 — MCP Settings `[MANUAL]`
+**Verify**: Settings modal shows MCP Server section with Start/Stop toggle, status text, URL, Copy button.
+
+### T13.2 — MCP Start/Stop `[MANUAL]`
+**Verify**: Click Start → status "Running", URL shows. Click Stop → status "Stopped".
+
+---
+
+## Test Group 14: Edge Cases & Regression
+
+### T14.1 — Waiting Indicator Sync (Cross-Environment)
+
+**AI Action**: With remote connected, run in Copilot Chat:
+```
+Ask me: "Sync test" using ask_user. Wait for response.
+```
+**Verify**: *(Feature #8)*
+- Waiting indicator shows in BOTH VS Code and remote
+- Respond from ONE side → indicator disappears on BOTH sides
+
+### T14.2 — Plan Review + Pending Request Coexistence
+
+**AI Action**: Trigger a plan_review. While it's open, note whether the waiting indicator is present and UI is functional.
+**Verify**: Plan review modal and waiting indicator both work independently.
+
+### T14.3 — Queue Pause State After Full Page Reload `[MANUAL]`
+**Verify**: Pause queue → fully reload remote browser page (F5) → queue should still be paused after re-authentication. *(Fix #7)*
+
+### T14.4 — Stale State Cleanup `[MANUAL]`
+**Verify**: If no pending request exists, refreshing remote browser should NOT show any stale question or plan review modal.
+
+### T14.5 — Multiple Rapid ask_user Calls
+
+**AI Action**: Run in Copilot Chat:
+```
+Ask me 3 questions in sequence using ask_user, one at a time. First: "Question 1?", then "Question 2?", then "Question 3?". Wait for each response before asking the next.
+```
+**Verify**: Each question appears correctly. Responding to one shows the next. No UI glitches.
+
+---
+
+## Test Group 15: Error Handling
+
+### T15.1 — Network Disconnect `[MANUAL]`
+**Verify**: Disconnect network while remote connected → "Disconnected. Reconnecting..." appears. Reconnect → auto-reconnects with state restored.
+
+### T15.2 — Invalid File Reference `[MANUAL]`
+**Verify**: Type `#nonexistentfile.xyz` → no results or "no matches" (no crash).
+
+---
+
+## Results Summary Template
+
+After all tests, the AI should present:
+
+```
+| Group | Tests | Passed | Failed | Notes |
+|-------|-------|--------|--------|-------|
+| 1. Extension Basics | 2 | | | |
+| 2. Queue Mode | 7 | | | |
+| 3. AI Tools (ask_user) | 7 | | | |
+| 4. Multi-Question | 1 | | | |
+| 5. Plan Review | 3 | | | |
+| 6. Approval Parsing | 2 | | | |
+| 7. Files & Images | 2 | | | |
+| 8. History | 2 | | | |
+| 9. Remote Server | 9 | | | |
+| 10. Settings | 5 | | | |
+| 11. Instruction Injection | 2 | | | |
+| 12. Prompts & Slash | 3 | | | |
+| 13. MCP Server | 2 | | | |
+| 14. Edge Cases | 5 | | | |
+| 15. Error Handling | 2 | | | |
+| **TOTAL** | **54** | | | |
 ```
 
 ---
 
-### 16.6 Multiple Answer Questions
+## Fixes Covered by This Checklist
 
-- [x] Multi-question UI displays with compact styling matching existing UI.
-
----
-
-## 17. Remote Plan Review
-
-### 17.1 Remote Display
-
-- [x] Open: With remote connected, trigger plan_review → VS Code panel AND remote modal open
-- [x] Content: Check remote modal → Plan visible, markdown formatted, buttons work
-
-**Copilot Test Prompt:**
-```
-Create a simple 3-step plan and call plan_review for approval.
-```
-
-### 17.2 Dismiss Sync
-
-- [x] Close from VS Code: Close plan panel in VS Code → Remote modal closes automatically
-- [x] Close from Remote: Close plan in Remote UI → VS Code panel closes automatically
-
-### 17.3 Remote Notifications
-
-- [x] Setup: Enable browser notifications, switch tabs → Remote tab hidden
-- [x] Trigger: Trigger plan_review → Browser notification appears, sound plays 
-
----
-
-## 18. Notifications
-
-### 18.1 Sound (Web Audio)
-
-- [x] Enable: Turn ON sound in settings → Toggle checked
-- [x] Trigger: Trigger ask_user → Beep sound plays (880Hz tone)
-- [x] Remote: Verify on remote client → Same beep plays
-
-### 18.2 Browser Push (Remote)
-
-- [x] Permission: Open remote, click "Allow" on notification prompt → Permission granted (Note: Blocked on iOS Safari due to HTTP)
-- [x] Trigger: Switch tabs, trigger ask_user → Browser notification appears with question text 
-- [x] Click: Click notification → Focuses FlowCommand tab (Note: Falls back to visual toast if permission denied)
-
-### 18.3 Sound Toggle
-
-- [x] Disable: Turn OFF notification sound → No sound on ask_user
-- [x] Enable: Turn ON notification sound → Sound plays on ask_user
-
----
-
-## 19. Mobile Notifications
-
-### 19.1 Permission Button (REMOVED)
-
-- [x] Button display: Open remote on mobile → Bell icon 🔔 visible in header (REMOVED - see Known Limitations)
-- [x] Request permission: Tap bell → Permission prompt appears (iOS 16.4+) (REMOVED)
-- [x] Granted state: Grant permission → Bell icon solid (no dot) (REMOVED)
-
-### 19.2 Native vs Toast
-
-- [x] Toast (permission denied): Trigger ask_user → Blue visual toast at top of screen, auto-hides after 5s (Fixed: max-height 120px)
-
----
-
-## Summary Checklist
-
-After all tests, verify these categories pass:
-
-- [x] **Basic**: Extension loads, queue/normal modes work
-- [x] **AI Integration**: ask_user and plan_review tools work with Copilot
-- [x] **Files/Images**: File references (#) and image paste/drag work
-- [x] **Remote Server**: Mobile/browser access works
-- [x] **Settings**: All toggles function correctly
-- [x] **Prompts**: Slash commands and templates work
-- [x] **Themes**: Light/dark themes sync across VS Code and remote
-- [x] **Pause/Play**: Queue pausing prevents auto-response
-- [x] **Interactive Approval**: Number/letter/bullet options parsed correctly
-- [x] **Notifications**: Sound and push notifications work (Browser notifications blocked on iOS Safari due to HTTP connection and popup notifications are working)
-- [x] **Plan Review Sync**: VS Code and remote dismiss in sync
+| Fix # | Description | Test IDs |
+|-------|-------------|----------|
+| 1 | Default instruction text | T11.1 |
+| 2 | Choice button UX + re-send bugs | T3.2, T3.3 |
+| 3 | IDE Notification rename | T3.4, T10.3 |
+| 4 | Queue pause button always visible | T2.4 |
+| 5 | Auto-focus panel inversion | T3.5, T10.4 |
+| 6 | Plan review sync | T9.4, T9.5 |
+| 7 | Queue pause state on refresh | T9.5, T14.3 |
+| 8 | AI waiting indicator | T3.7, T5.3, T9.3, T14.1 |
 
 ---
 
 ## Known Limitations
 
-1. **VS Code Webview Drag-Drop** - Cannot drag files from Explorer into webview. Use paste instead.
-2. **iOS Notifications** - Requires iOS 16.4+, Add to Home Screen, explicit permission via bell button.
-3. **Remote Attachment Button** - Hidden (requires VS Code file picker API).
+1. **VS Code Webview Drag-Drop** — Cannot drag files from Explorer into webview. Use paste instead.
+2. **iOS Notifications** — Requires iOS 16.4+, Add to Home Screen, explicit permission.
+3. **Remote Attachment Button** — Hidden (requires VS Code file picker API).
 
 ---
 
@@ -457,7 +444,6 @@ After all tests, verify these categories pass:
 **Steps to Reproduce:**
 1. [Step]
 2. [Step]
-3. [Step]
 
 **Expected:** [What should happen]
 **Actual:** [What happened]
@@ -466,10 +452,6 @@ After all tests, verify these categories pass:
 - VS Code: [version]
 - Extension: [version]
 - OS: [e.g., Windows 11]
-
-**Screenshots:** [If applicable]
 ```
-
----
 
 Report issues at: https://github.com/rajeevreddyms5/vscode-flowcommand/issues

@@ -169,6 +169,7 @@ Call `ask_user` with ONLY: `question: "Would you like to use PostgreSQL, MySQL, 
 ## Results Summary
 
 After running all tests:
+
 1. Present the results table to the user
 2. For any FAIL results, ensure a `FIXME: <failure description>` line exists under that test
 3. Commit the updated file with FIXME annotations if any tests failed

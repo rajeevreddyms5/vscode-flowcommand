@@ -32,6 +32,8 @@ Call `ask_user` with: `question: "Do you see the queue items still in the queue 
 
 **Verify with user:** Queue items should NOT be auto-consumed while paused. Ask the user to confirm.
 
+FIXME: even though we pause the prompt queue, it was autoconsumed when using IDE
+
 ---
 
 ### VT-2: Plan Review Cancel Button (Fix for T5.1)
@@ -54,6 +56,8 @@ Call `plan_review` with a short plan (e.g., 2-step plan for setting up a databas
 
 **Verify with user:** Ask: "Do you see an orange pulsing 'AI is waiting for your input' indicator in the FlowCommand sidebar input area? Does it disappear after you approve/cancel?"
 
+FIXME: that planreview that was canceled using cancel button in the IDE is not closing the planreview in the remote session.
+
 ---
 
 ### VT-4: Remote Plan Review Reconnect (Fix for T5.3 — Remote) `[MANUAL]`
@@ -67,6 +71,8 @@ Ask the user to:
 2. Tell you when ready, then you'll trigger `plan_review`
 3. Disconnect and reconnect the remote session
 4. Verify the plan review modal restores
+
+FIXME: Plan review modal does not restore after remote reconnect.
 
 ---
 
@@ -102,6 +108,8 @@ Call `ask_user` with:
 
 **Verify with user:** After they respond, ask: "Did choice buttons appear? Was there NO 'Other' button? Was the text input still visible below for custom responses?"
 
+FIXME: the AI used question with text field and submit and cancel buttons for this single question. so no choice buttons appeared.
+
 ---
 
 ### VT-8: End/Cancel Button Removed from Choices Bar (Fix for T3.2)
@@ -115,6 +123,8 @@ Call `ask_user` with:
 - `choices: [{label: "Dark", value: "dark"}, {label: "Light", value: "light"}, {label: "System", value: "system"}]`
 
 **Verify with user:** After they respond, ask: "Did you see ONLY the choice buttons (Dark, Light, System) with no 'End', 'Cancel', or 'Other' buttons?"
+
+FIXME: the AI used question with text field and submit and cancel buttons for this single question. so no choice buttons appeared.
 
 ---
 
@@ -143,6 +153,8 @@ Call `ask_user` with the `questions` parameter:
 
 **Verify with user:** Ask: "In the multi-question form: (1) Did Question 1 show radio buttons for Python/JavaScript/Go with NO 'Other' option? (2) Did Question 2 show a free text input? (3) Were Submit and Cancel buttons at the bottom?"
 
+FIXME: no options at all showed. no multiquesions used. only single question is appearing.
+
 ---
 
 ### VT-11: Comma-Separated Fallback Choice Parsing (Fix for T6.1, T6.2)
@@ -154,6 +166,8 @@ Call `ask_user` with ONLY: `question: "Would you like to use PostgreSQL, MySQL, 
 
 **Verify with user:** Ask: "Did choice buttons appear for PostgreSQL, MySQL, and SQLite even though no explicit choices were passed? The fallback parser should have detected them from the question text."
 
+FIXME: the following buttons appeared "to use PostgreSQL", "MySQL", "SQLite" instead of "PostgreSQL", "MySQL", "SQLite"
+
 ---
 
 ### VT-12: Updated AI Guidance — Choices Parameter Usage
@@ -163,6 +177,8 @@ Call `ask_user` with ONLY: `question: "Would you like to use PostgreSQL, MySQL, 
 **This is a meta-test:** If you (the AI running these tests) correctly used `choices` parameter in VT-7 and VT-8 above, this test passes. The updated guidance in modelDescription should have led you to use `question` + `choices` parameters instead of `questions` array.
 
 **Verify:** Did VT-7 and VT-8 produce choice buttons? If yes → PASS.
+
+FIXME: VT-7 and VT-8 did not produce choice buttons; AI used questions array instead of choices parameter.
 
 ---
 
@@ -176,15 +192,16 @@ After running all tests:
 
 | Test  | Description                          | Result |
 | ----- | ------------------------------------ | ------ |
-| VT-1  | Queue pause no auto-consume          |        |
-| VT-2  | Plan review cancel button            |        |
-| VT-3  | Waiting indicator during plan review |        |
-| VT-4  | Remote plan review reconnect         |        |
-| VT-5  | History info icon                    |        |
-| VT-6  | Template UX rename (Pin/Unpin)       |        |
-| VT-7  | Other button removed from choices    |        |
-| VT-8  | End/Cancel removed from choices      |        |
-| VT-9  | End/Cancel removed from approval     |        |
-| VT-10 | Other removed from multi-question    |        |
-| VT-11 | Comma-separated fallback parsing     |        |
+| VT-1  | Queue pause no auto-consume          | FAIL   |
+| VT-2  | Plan review cancel button            | PASS   |
+| VT-3  | Waiting indicator during plan review | PASS   |
+| VT-4  | Remote plan review reconnect         | FAIL   |
+| VT-5  | History info icon                    | PASS   |
+| VT-6  | Template UX rename (Pin/Unpin)       | PASS   |
+| VT-7  | Other button removed from choices    | FAIL   |
+| VT-8  | End/Cancel removed from choices      | FAIL   |
+| VT-9  | End/Cancel removed from approval     | PASS   |
+| VT-10 | Other removed from multi-question    | FAIL   |
+| VT-11 | Comma-separated fallback parsing     | FAIL   |
+| VT-12 | Updated AI guidance choices usage    | FAIL   |
 | VT-12 | AI guidance for choices param        |        |

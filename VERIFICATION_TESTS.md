@@ -34,6 +34,8 @@ Call `ask_user` with: `question: "Do you see the queue items still in the queue 
 
 FIXME: even though we pause the prompt queue, it was autoconsumed when using IDE
 
+FIXME: the play or pause button state is confusing, because we don't know whether in pause state or play state. the AI is waiting for input has color so it is difficult to know the state of the prompt queue
+
 ---
 
 ### VT-2: Plan Review Cancel Button (Fix for T5.1)

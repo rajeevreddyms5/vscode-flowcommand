@@ -637,9 +637,9 @@ export class FlowCommandWebviewProvider
         });
     }
 
-    // Auto-focus panel (if  enabled, focus the FlowCommand sidebar)
+    // Auto-focus panel (if enabled, focus the FlowCommand sidebar)
     if (this._autoFocusPanelEnabled && this._view) {
-      this._view.show(true);
+      this._view.show(false);
     }
 
     // Mobile notification is handled via the broadcast to remote clients
@@ -1052,7 +1052,9 @@ export class FlowCommandWebviewProvider
       };
 
       if (this._webviewReady && this._view) {
-        this._view.show(!this._autoFocusPanelEnabled);
+        if (this._autoFocusPanelEnabled) {
+          this._view.show(false);
+        }
         this._view.webview.postMessage(multiQuestionMessage);
         this.playNotificationSound();
         this._showDesktopNotification("AI has multiple questions for you");
@@ -1082,7 +1084,9 @@ export class FlowCommandWebviewProvider
       };
 
       if (this._webviewReady && this._view) {
-        this._view.show(!this._autoFocusPanelEnabled);
+        if (this._autoFocusPanelEnabled) {
+          this._view.show(false);
+        }
         this._view.webview.postMessage(toolCallMessage);
         this.playNotificationSound();
         this._showDesktopNotification(question);
@@ -1443,7 +1447,9 @@ export class FlowCommandWebviewProvider
       }
     }
 
-    this._view.show(!this._autoFocusPanelEnabled);
+    if (this._autoFocusPanelEnabled) {
+      this._view.show(false);
+    }
 
     // Add pending entry to current session (so we have the prompt when completing)
     const pendingEntry: ToolCallEntry = {
@@ -1653,7 +1659,9 @@ export class FlowCommandWebviewProvider
     // Store questions for remote state sync
     this._currentMultiQuestions = safeQuestions;
 
-    this._view.show(!this._autoFocusPanelEnabled);
+    if (this._autoFocusPanelEnabled) {
+      this._view.show(false);
+    }
 
     // Add pending entry to current session
     const pendingEntry: ToolCallEntry = {
@@ -3885,9 +3893,6 @@ export class FlowCommandWebviewProvider
                     <button class="queue-clear-btn" id="queue-clear-btn" title="Clear all queue items" aria-label="Clear queue">
                         <span class="codicon codicon-trash" aria-hidden="true"></span>
                     </button>
-                    <button class="queue-pause-btn" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
-                        <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
-                    </button>
                 </div>
                 <div class="queue-list" id="queue-list" role="list" aria-label="Queued prompts">
                     <div class="queue-empty" role="status">No prompts in queue</div>
@@ -3915,6 +3920,9 @@ export class FlowCommandWebviewProvider
                             <span class="codicon codicon-chevron-down"></span>
                         </button>
                     </div>
+                    <button class="queue-pause-btn hidden" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
+                        <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
+                    </button>
                 </div>
                 <div class="actions-right">
                     <button id="end-session-btn" class="icon-btn end-session-btn" title="End session" aria-label="End session">

@@ -133,6 +133,7 @@
       renderQueue();
       updateModeUI();
       updateQueueVisibility();
+      updatePauseBtnVisibility();
       initCardSelection();
 
       // Restore persisted input value (when user switches sidebar tabs and comes back)
@@ -1113,6 +1114,7 @@
     updateCardSelection();
     updateModeUI();
     updateQueueVisibility();
+    updatePauseBtnVisibility();
 
     // Only notify extension if user clicked (not on init from persisted state)
     if (notify) {
@@ -1561,6 +1563,7 @@
     queueEnabled = mode === "queue";
     updateModeUI();
     updateQueueVisibility();
+    updatePauseBtnVisibility();
     updateCardSelection();
     if (notify)
       vscode.postMessage({ type: "toggleQueue", enabled: queueEnabled });
@@ -1578,9 +1581,15 @@
 
   function updateQueueVisibility() {
     if (!queueSection) return;
-    // Show queue section whenever queue mode is enabled (so pause button is always accessible)
-    var shouldHide = !queueEnabled;
+    // Show queue section only when queue mode is enabled AND there are items in the queue
+    var shouldHide = !queueEnabled || promptQueue.length === 0;
     queueSection.classList.toggle("hidden", shouldHide);
+  }
+
+  function updatePauseBtnVisibility() {
+    if (!queuePauseBtn) return;
+    // Show pause button only when queue mode is enabled
+    queuePauseBtn.classList.toggle("hidden", !queueEnabled);
   }
 
   /**
@@ -1636,7 +1645,8 @@
       }
       queuePauseBtn.title = "Resume queue processing";
       queuePauseBtn.setAttribute("aria-label", "Resume queue");
-      queueSection.classList.add("paused");
+      queuePauseBtn.classList.add("paused");
+      if (queueSection) queueSection.classList.add("paused");
     } else {
       if (icon) {
         icon.classList.remove("codicon-debug-start");
@@ -1644,7 +1654,8 @@
       }
       queuePauseBtn.title = "Pause queue processing";
       queuePauseBtn.setAttribute("aria-label", "Pause queue");
-      queueSection.classList.remove("paused");
+      queuePauseBtn.classList.remove("paused");
+      if (queueSection) queueSection.classList.remove("paused");
     }
   }
 
@@ -1663,6 +1674,7 @@
         renderQueue();
         updateModeUI();
         updateQueueVisibility();
+        updatePauseBtnVisibility();
         updateQueuePauseUI();
         updateCardSelection();
         // Update end session button state based on whether "end" is in queue
@@ -2905,10 +2917,6 @@
   function showApprovalModal() {
     if (!approvalModal) return;
     approvalModal.classList.remove("hidden");
-    // Hide the input container since approval bar provides the primary actions
-    if (inputContainer) {
-      inputContainer.classList.add("hidden");
-    }
     // Focus first button for keyboard accessibility
     if (approvalContinueBtn) {
       approvalContinueBtn.focus();
@@ -2922,10 +2930,6 @@
     if (!approvalModal) return;
     approvalModal.classList.add("hidden");
     isApprovalQuestion = false;
-    // Restore input container visibility
-    if (inputContainer) {
-      inputContainer.classList.remove("hidden");
-    }
   }
 
   /**
@@ -2999,11 +3003,6 @@
     });
 
     choicesBar.classList.remove("hidden");
-
-    // Hide the input container since choices bar provides the primary actions
-    if (inputContainer) {
-      inputContainer.classList.add("hidden");
-    }
   }
 
   /**
@@ -3015,10 +3014,6 @@
       choicesBar.classList.add("hidden");
     }
     currentChoices = [];
-    // Restore input container visibility
-    if (inputContainer) {
-      inputContainer.classList.remove("hidden");
-    }
   }
 
   /**
@@ -3030,10 +3025,6 @@
     var choicesBar = document.getElementById("choices-bar");
     if (choicesBar) {
       choicesBar.classList.add("hidden");
-    }
-    // Show the input container for typing
-    if (inputContainer) {
-      inputContainer.classList.remove("hidden");
     }
     // Focus the chat input
     if (chatInput) {

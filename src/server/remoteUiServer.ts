@@ -2734,9 +2734,6 @@ self.addEventListener('fetch', event => {
             <button class="remote-header-btn" id="theme-toggle-btn" title="Toggle Theme">
                 <span class="codicon codicon-symbol-color"></span>
             </button>
-            <button class="remote-header-btn" id="notification-permission-btn" title="Enable Notifications" style="display:none;">
-                <span class="codicon codicon-bell-dot"></span>
-            </button>
             <button class="remote-header-btn" id="remote-logout-btn" title="Logout">
                 <span class="codicon codicon-sign-out"></span>
             </button>
@@ -2820,9 +2817,6 @@ self.addEventListener('fetch', event => {
                         <button class="queue-clear-btn" id="queue-clear-btn" title="Clear all queue items" aria-label="Clear queue">
                             <span class="codicon codicon-trash" aria-hidden="true"></span>
                         </button>
-                        <button class="queue-pause-btn" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
-                            <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
-                        </button>
                     </div>
                     <div class="queue-list" id="queue-list" role="list" aria-label="Queued prompts">
                         <div class="queue-empty" role="status">No prompts in queue</div>
@@ -2846,6 +2840,9 @@ self.addEventListener('fetch', event => {
                                     <span class="codicon codicon-chevron-down"></span>
                                 </button>
                             </div>
+                            <button class="queue-pause-btn hidden" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
+                                <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
+                            </button>
                         </div>
                         <div class="actions-right">
                             <button id="end-session-btn" class="icon-btn end-session-btn" title="End session" aria-label="End session">
@@ -3051,129 +3048,7 @@ self.addEventListener('fetch', event => {
         // Remote users explicitly want notifications since they're using the web interface
         window.mobileNotificationEnabled = true;
         
-        function isIOSSafari() {
-            var ua = navigator.userAgent || '';
-            var isIOS = /iPad|iPhone|iPod/.test(ua);
-            var isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
-            return isIOS && isSafari;
-        }
-
-        function isStandaloneMode() {
-            return (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;
-        }
-
-        function getIosNotificationHelp() {
-            if (isStandaloneMode()) {
-                return 'You are in PWA mode but notifications may still be blocked. Try: Settings → Safari → Advanced → Experimental Features → Push API (enable). Then reload this page.';
-            }
-            return 'To enable notifications on iOS: 1) Tap the Share button, 2) Select "Add to Home Screen", 3) Open from the Home Screen icon, 4) Tap the bell button.';
-        }
-
-        function getDesktopNotificationHelp() {
-            return 'Notifications blocked. Click the lock/info icon in the URL bar → Site Settings → Notifications → Allow. Then reload.';
-        }
-
-        function requestNotificationPermission() {
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission().then(function(permission) {
-                    console.log('[FlowCommand] Notification permission:', permission);
-                    updateNotificationButton();
-                    // Show immediate feedback
-                    if (permission === 'granted') {
-                        showVisualNotification('Notifications enabled! You will receive alerts when Copilot asks questions.');
-                    } else if (permission === 'denied') {
-                        // Don't show error - user explicitly denied, they know
-                        console.log('[FlowCommand] User denied notification permission');
-                    }
-                }).catch(function(err) {
-                    console.error('[FlowCommand] Notification permission request failed:', err);
-                    // Silently fall back to visual notifications
-                });
-            }
-        }
-        
-        // Update notification button visibility based on permission state
-        function updateNotificationButton() {
-            const notifBtn = document.getElementById('notification-permission-btn');
-            if (!notifBtn) return;
-            
-            if (!('Notification' in window)) {
-                // Browser doesn't support notifications - hide button
-                notifBtn.style.display = 'none';
-                return;
-            }
-            
-            if (Notification.permission === 'default') {
-                // Permission not yet requested - show button with bell-dot
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell-dot"></span>';
-                if (isIOSSafari() && !isStandaloneMode()) {
-                    notifBtn.title = 'iOS Safari requires Add to Home Screen for notifications';
-                } else {
-                    notifBtn.title = 'Enable Push Notifications';
-                }
-            } else if (Notification.permission === 'granted') {
-                // Permission granted - show bell (solid)
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell"></span>';
-                notifBtn.title = 'Notifications Enabled';
-            } else {
-                // Permission denied - show bell-slash
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell-slash"></span>';
-                if (isIOSSafari()) {
-                    notifBtn.title = 'iOS Safari notifications require Home Screen install';
-                } else {
-                    notifBtn.title = 'Notifications Blocked - Enable in browser settings';
-                }
-            }
-        }
-        
-        // Bind notification button click handler (must be user gesture for iOS)
-        setTimeout(function() {
-            const notifBtn = document.getElementById('notification-permission-btn');
-            if (notifBtn) {
-                notifBtn.addEventListener('click', function() {
-                    if (!('Notification' in window)) {
-                        showVisualNotification('Push notifications not supported. Visual alerts will be used instead.');
-                        return;
-                    }
-                    if (Notification.permission === 'default') {
-                        if (isIOSSafari() && !isStandaloneMode()) {
-                            var iosHelp = getIosNotificationHelp();
-                            showVisualNotification(iosHelp);
-                            return;
-                        }
-                        requestNotificationPermission();
-                    } else if (Notification.permission === 'denied') {
-                        // Show helpful guidance instead of generic error
-                        if (isIOSSafari()) {
-                            var help = getIosNotificationHelp();
-                            showVisualNotification(help);
-                        } else {
-                            var desktopHelp = getDesktopNotificationHelp();
-                            showVisualNotification(desktopHelp);
-                        }
-                    } else {
-                        // Already granted - show test notification
-                        try {
-                            new Notification('FlowCommand Test', {
-                                body: 'Notifications are working!',
-                                icon: '/media/FC-logo.svg'
-                            });
-                        } catch (e) {
-                            showVisualNotification('Native notifications failed, using visual alerts.');
-                        }
-                    }
-                });
-            }
-            updateNotificationButton();
-        }, 100);
-        
-        // Don't auto-request on page load - let user click the button (required for iOS)
-        // requestNotificationPermission();
-        
-        // Visual notification fallback (for browsers that don't support Web Notifications)
+        // Visual notification toast (used when mobile notifications are enabled)
         function showVisualNotification(prompt, color) {
             var bgColor = color || '#0078d4';
             // Truncate long messages for the visual toast
@@ -3196,39 +3071,8 @@ self.addEventListener('fetch', event => {
         
         function showMobileNotification(prompt) {
             console.log('[FlowCommand] showMobileNotification called with:', prompt.substring(0, 50));
-            
-            // Check if native notifications are available and granted
-            const nativeNotificationsAvailable = ('Notification' in window) && Notification.permission === 'granted';
-            
-            if (nativeNotificationsAvailable) {
-                // Use native notifications
-                var preview = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
-                try {
-                    console.log('[FlowCommand] Showing native browser notification');
-                    var notification = new Notification('FlowCommand', {
-                        body: preview,
-                        icon: '/media/FC-logo.svg',
-                        tag: 'flowcommand-pending',
-                        requireInteraction: true,
-                        silent: false
-                    });
-                    notification.onclick = function() {
-                        window.focus();
-                        notification.close();
-                    };
-                    setTimeout(function() { notification.close(); }, 30000);
-                } catch (e) {
-                    console.error('[FlowCommand] Native notification error, falling back to visual:', e);
-                    showVisualNotification(prompt);
-                }
-            } else {
-                // Fallback to visual toast
-                console.log('[FlowCommand] Using visual toast notification (native not available/granted)');
-                showVisualNotification(prompt);
-            }
+            showVisualNotification(prompt);
         }
-        
-        // Make showMobileNotification globally accessible
         
         // Make showMobileNotification globally accessible
         window.showMobileNotification = showMobileNotification;
@@ -3402,10 +3246,6 @@ self.addEventListener('fetch', event => {
                         if (state.settings.mobileNotificationEnabled === false) {
                             window.mobileNotificationEnabled = false;
                         }
-                        // Request permission if enabled (or still at default true)
-                        if (window.mobileNotificationEnabled) {
-                            requestNotificationPermission();
-                        }
                     }
                     if (state.pendingRequest) {
                         window.dispatchVSCodeMessage({
@@ -3484,9 +3324,6 @@ self.addEventListener('fetch', event => {
                 // Sync mobile notification flag when settings change
                 if (message.type === 'updateSettings') {
                     window.mobileNotificationEnabled = message.mobileNotificationEnabled === true;
-                    if (window.mobileNotificationEnabled) {
-                        requestNotificationPermission();
-                    }
                 }
             });
             

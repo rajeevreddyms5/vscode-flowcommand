@@ -1023,6 +1023,16 @@ body {
   opacity: 1;
 }
 
+/* Pause button in actions bar - paused state */
+.queue-pause-btn.paused {
+  color: var(--vscode-inputValidation-warningBorder, #ddb100);
+  opacity: 1;
+}
+
+.queue-pause-btn.hidden {
+  display: none !important;
+}
+
 .queue-list {
   max-height: var(--queue-list-max-height);
   overflow-y: auto;

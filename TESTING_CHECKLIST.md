@@ -17,17 +17,6 @@ When the user asks to "start tests" or "run the testing checklist":
 
 ---
 
-## Prerequisites
-
-Before starting tests, verify:
-
-- [ ] Extension is installed (VSIX or dev host)
-- [ ] Workspace folder is open in VS Code
-- [ ] GitHub Copilot Chat is installed and enabled
-- [ ] Remote server is NOT running (will be started during tests)
-
----
-
 ## Test Group 1: Extension Basics
 
 ### T1.1 — Extension Activation `[MANUAL]`
@@ -213,8 +202,8 @@ Create a 3-step plan for building a REST API and present it using plan_review. W
 
 ### T5.3 — Waiting Indicator During Plan Review
 
-**AI Action**: Trigger plan_review (as in T5.1).
-**Verify**: The "AI is waiting for your input" pulsing indicator appears in the input area while plan review is open. _(Feature #8)_
+**AI Action**: Trigger plan*review (as in T5.1).
+**Verify**: The "AI is waiting for your input" pulsing indicator appears in the input area while plan review is open. *(Feature #8)\_
 
 ---
 
@@ -312,7 +301,7 @@ Create a simple 2-step plan and call plan_review. Wait for approval.
 
 1. Click the refresh button in remote browser header → question re-appears, waiting indicator shows
 2. If queue was paused → still shows paused after refresh _(Fix #7)_
-3. If plan_review was active → plan review modal re-appears after refresh _(Fix #6)_
+3. If plan*review was active → plan review modal re-appears after refresh *(Fix #6)\_
 
 ### T9.6 — Remote Auto-Reconnect `[MANUAL]`
 

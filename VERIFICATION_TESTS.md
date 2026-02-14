@@ -4,11 +4,13 @@
 
 You are running interactive verification tests for the FlowCommand extension.
 **Run each test one by one.** For each test:
+
 1. Read the test description and what was fixed
 2. Execute the prompt yourself (call the tool directly — do NOT tell the user to run it)
 3. Ask the user to verify what they see in the UI
 4. Record PASS or FAIL based on their response
-5. Move to the next test
+5. **If FAIL:** Add a `FIXME:` line directly below the test's **Verify** section with the user's failure description
+6. Move to the next test
 
 **Important:** YOU must execute the prompts. Do not ask the user to copy-paste prompts into chat. Use `ask_user` or `plan_review` directly as described in each test.
 
@@ -60,6 +62,7 @@ Call `plan_review` with a short plan (e.g., 2-step plan for setting up a databas
 
 **This test requires manual steps:**
 Ask the user to:
+
 1. Start the remote server and connect from phone/browser
 2. Tell you when ready, then you'll trigger `plan_review`
 3. Disconnect and reconnect the remote session
@@ -93,6 +96,7 @@ Call `ask_user` with: `question: "Open Reusable Prompts modal. Do you see: (1) h
 
 **Execute:**
 Call `ask_user` with:
+
 - `question: "Which database would you like to use?"`
 - `choices: [{label: "PostgreSQL", value: "postgresql"}, {label: "MySQL", value: "mysql"}, {label: "SQLite", value: "sqlite"}]`
 
@@ -106,6 +110,7 @@ Call `ask_user` with:
 
 **Execute:**
 Call `ask_user` with:
+
 - `question: "Which color theme do you prefer?"`
 - `choices: [{label: "Dark", value: "dark"}, {label: "Light", value: "light"}, {label: "System", value: "system"}]`
 
@@ -132,6 +137,7 @@ Call `ask_user` with: `question: "Should I proceed with the deployment?"`
 
 **Execute:**
 Call `ask_user` with the `questions` parameter:
+
 - Question 1: `header: "Language"`, `question: "What programming language?"`, `options: [{label: "Python"}, {label: "JavaScript"}, {label: "Go"}]`
 - Question 2: `header: "Framework"`, `question: "What framework do you prefer?"` (no options — free text)
 
@@ -162,19 +168,22 @@ Call `ask_user` with ONLY: `question: "Would you like to use PostgreSQL, MySQL, 
 
 ## Results Summary
 
-After running all tests, present results to the user:
+After running all tests:
+1. Present the results table to the user
+2. For any FAIL results, ensure a `FIXME: <failure description>` line exists under that test
+3. Commit the updated file with FIXME annotations if any tests failed
 
-| Test | Description | Result |
-|------|-------------|--------|
-| VT-1 | Queue pause no auto-consume | |
-| VT-2 | Plan review cancel button | |
-| VT-3 | Waiting indicator during plan review | |
-| VT-4 | Remote plan review reconnect | |
-| VT-5 | History info icon | |
-| VT-6 | Template UX rename (Pin/Unpin) | |
-| VT-7 | Other button removed from choices | |
-| VT-8 | End/Cancel removed from choices | |
-| VT-9 | End/Cancel removed from approval | |
-| VT-10 | Other removed from multi-question | |
-| VT-11 | Comma-separated fallback parsing | |
-| VT-12 | AI guidance for choices param | |
+| Test  | Description                          | Result |
+| ----- | ------------------------------------ | ------ |
+| VT-1  | Queue pause no auto-consume          |        |
+| VT-2  | Plan review cancel button            |        |
+| VT-3  | Waiting indicator during plan review |        |
+| VT-4  | Remote plan review reconnect         |        |
+| VT-5  | History info icon                    |        |
+| VT-6  | Template UX rename (Pin/Unpin)       |        |
+| VT-7  | Other button removed from choices    |        |
+| VT-8  | End/Cancel removed from choices      |        |
+| VT-9  | End/Cancel removed from approval     |        |
+| VT-10 | Other removed from multi-question    |        |
+| VT-11 | Comma-separated fallback parsing     |        |
+| VT-12 | AI guidance for choices param        |        |

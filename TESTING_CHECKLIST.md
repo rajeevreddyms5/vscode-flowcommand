@@ -43,9 +43,9 @@ When the user asks to "start tests" or "run the testing checklist":
 
 **Verify**: Hover queue item → edit/delete buttons appear. Delete one → count decreases. Edit one → text updates. Drag to reorder → order persists.
 
-### T2.4 — Queue Pause Button Always Visible
+### T2.4 — Pause Button in Actions Bar
 
-**Verify**: With Queue Mode ON and queue EMPTY, the pause button (⏸️) should still be visible in the queue header. _(Fix #4)_
+**Verify**: With Queue Mode ON, the pause button (⏸️) is visible in the actions bar next to the mode selector — NOT inside the queue section. It shows/hides based on queue mode. _(Fix #4)_
 
 ### T2.5 — Pause Behavior `[MANUAL]`
 
@@ -65,9 +65,11 @@ Ask me a simple question using ask_user. Do not proceed until I respond.
 
 **Verify**: Click ▶️ → unpauses. Trigger another `ask_user` → first queue item auto-consumed.
 
----
+### T2.8 — Queue Section Visibility
 
-## Test Group 3: AI Tool Integration (ask_user)
+**Verify**: In Queue Mode with NO items, the queue section is HIDDEN (only the actions bar shows). Add a prompt → queue section appears. Clear all → queue section hides again. In Normal Mode, queue section is always hidden regardless of items.
+
+---
 
 ### T3.1 — Basic ask_user
 
@@ -87,10 +89,10 @@ Ask me: "What color do you prefer?" using ask_user. Wait for my response.
 Ask me to choose a database using ask_user with these choices: PostgreSQL, MongoDB, SQLite. Wait for my selection.
 ```
 
-**Verify**: Choice buttons appear, text input is HIDDEN. Buttons include "Other" (italic) and "Cancel" (red). _(Fix #2)_
+**Verify**: Choice buttons appear. Text input remains visible below the choices. Buttons include "Other" (italic) and "Cancel" (red). _(Fix #2, #9)_
 
 - Click a choice → response sent with that value
-- Click "Other" → text input reappears, choices hidden
+- Click "Other" → choices hidden, input still visible, focused for typing
 - Click "Cancel" → sends "User cancelled this question."
 
 ### T3.3 — ask_user with Yes/No Approval
@@ -101,7 +103,7 @@ Ask me to choose a database using ask_user with these choices: PostgreSQL, Mongo
 Ask me: "Should I proceed with the deployment?" using ask_user. Wait for my answer.
 ```
 
-**Verify**: If Interactive Approval is ON in settings, "Yes" and "No" buttons appear (plus "Cancel" button). Text input is hidden. _(Fix #2)_
+**Verify**: If Interactive Approval is ON in settings, "Yes" and "No" buttons appear (plus "Cancel" button). Text input remains visible below. _(Fix #2, #9)_
 
 ### T3.4 — Notifications on ask_user
 
@@ -115,7 +117,7 @@ Ask me: "Are you still there?" using ask_user. Wait for my response.
 
 - Sound plays (880Hz beep)
 - IDE notification popup appears labeled "IDE Notification" _(Fix #3)_
-- Panel auto-focuses (steals focus when Auto-Focus is ON) _(Fix #5)_
+- Panel auto-focuses (steals focus when Auto-Focus is ON, panel stays hidden when OFF) _(Fix #5)_
 
 ### T3.5 — Auto-Focus Panel Inversion Check
 
@@ -128,7 +130,7 @@ Ask me: "Test auto-focus" using ask_user. Wait for response.
 **Verify**: _(Fix #5)_
 
 - Auto-Focus ON → panel steals focus (you're forced to look at it)
-- Auto-Focus OFF → panel does NOT steal focus (stays in background)
+- Auto-Focus OFF → panel is NOT revealed at all (stays completely hidden — no sidebar switch)
 
 ### T3.6 — Queue Auto-Response
 
@@ -319,6 +321,10 @@ Create a simple 2-step plan and call plan_review. Wait for approval.
 
 **Verify**: Click 📡 icon again → server stops. Remote shows "Disconnected".
 
+### T9.10 — Remote Bell Button Removed `[MANUAL]`
+
+**Verify**: Remote browser header does NOT have a bell/notification permission button. Visual toast notifications still appear when AI asks a question (if mobile notification is enabled).
+
 ---
 
 ## Test Group 10: Settings
@@ -343,13 +349,13 @@ Create a simple 2-step plan and call plan_review. Wait for approval.
 Ask me: "Did focus stay?" using ask_user.
 ```
 
-**Verify**: Panel does NOT steal focus. _(Fix #5)_
+**Verify**: Panel does NOT steal focus — panel is NOT revealed at all, sidebar stays on whatever was active. _(Fix #5)_
 
 Toggle Auto-Focus Panel ON. Repeat → panel DOES steal focus.
 
 ### T10.5 — Interactive Approval Toggle `[MANUAL]`
 
-**Verify**: Toggle OFF → ask_user shows text input only (no Yes/No buttons). Toggle ON → buttons appear.
+**Verify**: Toggle OFF → ask*user shows text input only (no Yes/No buttons). Toggle ON → buttons appear alongside the text input (input stays visible in both cases). *(Fix #9)\_
 
 ---
 
@@ -361,7 +367,7 @@ Toggle Auto-Focus Panel ON. Repeat → panel DOES steal focus.
 
 - `## SUBAGENT RULES` section
 - `## AGENT RULES` with 4 rules
-- Rule 1: "ALWAYS call ask_user"
+- Rule 1: "ALWAYS call `ask_user` after every task or response — NO EXCEPTIONS." with sub-bullets: "MUST be invoked before ending ANY conversation turn", "NEVER complete a response without calling", "NEVER use questions array for a single question"
 - Rule 3: Stop signals ("end", "stop", "terminate", "quit")
 - Rule 4: `runSubagent` VERBATIM instructions
 
@@ -463,21 +469,21 @@ After all tests, the AI should present:
 | Group | Tests | Passed | Failed | Notes |
 |-------|-------|--------|--------|-------|
 | 1. Extension Basics | 2 | | | |
-| 2. Queue Mode | 7 | | | |
+| 2. Queue Mode | 8 | | | |
 | 3. AI Tools (ask_user) | 7 | | | |
 | 4. Multi-Question | 1 | | | |
 | 5. Plan Review | 3 | | | |
 | 6. Approval Parsing | 2 | | | |
 | 7. Files & Images | 2 | | | |
 | 8. History | 2 | | | |
-| 9. Remote Server | 9 | | | |
+| 9. Remote Server | 10 | | | |
 | 10. Settings | 5 | | | |
 | 11. Instruction Injection | 2 | | | |
 | 12. Prompts & Slash | 3 | | | |
 | 13. MCP Server | 2 | | | |
 | 14. Edge Cases | 5 | | | |
 | 15. Error Handling | 2 | | | |
-| **TOTAL** | **54** | | | |
+| **TOTAL** | **56** | | | |
 ```
 
 ---
@@ -489,11 +495,14 @@ After all tests, the AI should present:
 | 1     | Default instruction text          | T11.1                   |
 | 2     | Choice button UX + re-send bugs   | T3.2, T3.3              |
 | 3     | IDE Notification rename           | T3.4, T10.3             |
-| 4     | Queue pause button always visible | T2.4                    |
-| 5     | Auto-focus panel inversion        | T3.5, T10.4             |
+| 4     | Queue pause button in actions bar | T2.4                    |
+| 5     | Auto-focus panel fix              | T3.5, T10.4             |
 | 6     | Plan review sync                  | T9.4, T9.5              |
 | 7     | Queue pause state on refresh      | T9.5, T14.3             |
 | 8     | AI waiting indicator              | T3.7, T5.3, T9.3, T14.1 |
+| 9     | Input stays visible with choices  | T3.2, T3.3, T10.5       |
+| 10    | Bell button removed from remote   | T9.10                   |
+| 11    | Queue section visibility          | T2.8                    |
 
 ---
 

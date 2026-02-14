@@ -334,34 +334,9 @@
     approvalContinueBtn.setAttribute("aria-label", "Yes and continue");
     approvalContinueBtn.textContent = "Yes";
 
-    // End button (ends/cancels the question)
-    var approvalCancelBtn = document.createElement("button");
-    approvalCancelBtn.className = "approval-btn approval-cancel-btn";
-    approvalCancelBtn.setAttribute("aria-label", "End this question");
-    approvalCancelBtn.textContent = "End";
-    approvalCancelBtn.addEventListener("click", function () {
-      if (!pendingToolCall) return;
-      hideApprovalModal();
-      vscode.postMessage({
-        type: "submit",
-        value: "User ended this question.",
-        attachments: [],
-      });
-      if (chatInput) {
-        chatInput.value = "";
-        chatInput.style.height = "auto";
-        updateInputHighlighter();
-      }
-      currentAttachments = [];
-      updateChipsDisplay();
-      updateSendButtonState();
-      saveWebviewState();
-    });
-
-    // Assemble buttons: [No] [Yes] [Cancel]
+    // Assemble buttons: [No] [Yes]
     buttonsContainer.appendChild(approvalNoBtn);
     buttonsContainer.appendChild(approvalContinueBtn);
-    buttonsContainer.appendChild(approvalCancelBtn);
 
     // Assemble bar
     approvalModal.appendChild(labelSpan);
@@ -2995,10 +2970,6 @@
       })
       .join("");
 
-    // Add End button
-    buttonsHtml +=
-      '<button class="choice-btn choice-cancel-btn" data-action="cancel" title="End this question">End</button>';
-
     choicesBar.innerHTML =
       '<span class="choices-label">Choose:</span>' +
       '<div class="choices-buttons">' +
@@ -3007,15 +2978,10 @@
 
     // Bind click events to choice buttons
     choicesBar.querySelectorAll(".choice-btn").forEach(function (btn) {
-      var action = btn.getAttribute("data-action");
-      if (action === "cancel") {
-        btn.addEventListener("click", handleChoiceCancel);
-      } else {
-        btn.addEventListener("click", function () {
-          var value = btn.getAttribute("data-value");
-          handleChoiceClick(value);
-        });
-      }
+      btn.addEventListener("click", function () {
+        var value = btn.getAttribute("data-value");
+        handleChoiceClick(value);
+      });
     });
 
     choicesBar.classList.remove("hidden");
@@ -3030,33 +2996,6 @@
       choicesBar.classList.add("hidden");
     }
     currentChoices = [];
-  }
-
-  /**
-   * Handle "End" button click in choices bar
-   * Ends/cancels the current question
-   */
-  function handleChoiceCancel() {
-    if (!pendingToolCall) return;
-
-    // Hide choices bar
-    hideChoicesBar();
-
-    // Send end response
-    vscode.postMessage({
-      type: "submit",
-      value: "User ended this question.",
-      attachments: [],
-    });
-    if (chatInput) {
-      chatInput.value = "";
-      chatInput.style.height = "auto";
-      updateInputHighlighter();
-    }
-    currentAttachments = [];
-    updateChipsDisplay();
-    updateSendButtonState();
-    saveWebviewState();
   }
 
   /**

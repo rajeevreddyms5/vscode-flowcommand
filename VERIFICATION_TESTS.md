@@ -51,6 +51,8 @@ Call `plan_review` with a short 3-step plan for building a REST API.
 
 **Verify with user:** Ask: "Do you see three buttons in the plan review footer: Cancel (left, subtle), Request Changes (middle), and Approve (right, primary)? Click Cancel to test it closes the panel."
 
+FIXME: Plan review modal does NOT restore after remote reconnect despite fix attempt (C1 — STILL FAILS after 8f4da63). Fix implemented: `getState` emit on reconnect, localStorage persistence (`flowcommand_pendingPlanReview`), early restoration via `window.__pendingLocalStoragePlanReview`. Need to investigate why modal still doesn't reappear. Possible issues: (1) localStorage not persisting across remote disconnect, (2) restoration timing issue, (3) state sync not triggering UI update. User confirmed failure in test.
+
 ---
 
 ### VT-3: Waiting Indicator During Plan Review (Fix for T5.3)
@@ -114,6 +116,8 @@ Call `ask_user` with:
 
 **Verify with user:** After they respond, ask: "Did choice buttons appear? Was there NO 'Other' button? Was the text input still visible below for custom responses?"
 
+FIXME: AI incorrectly used multi-question mode instead of choices mode, showing duplicate text input form. Cancel button not working properly, reprompting user.
+
 **Fixed (D1/E1):** Rewrote `modelDescription` with explicit 3-mode format (A/B/C). AI should now use `question` + `choices` for single questions with predefined options.
 
 ---
@@ -129,6 +133,8 @@ Call `ask_user` with:
 - `choices: [{label: "Dark", value: "dark"}, {label: "Light", value: "light"}, {label: "System", value: "system"}]`
 
 **Verify with user:** After they respond, ask: "Did you see ONLY the choice buttons (Dark, Light, System) with no 'End', 'Cancel', or 'Other' buttons?"
+
+FIXME: AI incorrectly used multi-question mode instead of choices mode, showing duplicate text input form. Cancel button not working properly, reprompting user.
 
 **Fixed (D1/E1):** Same as VT-7 — modelDescription rewrite ensures AI uses `question` + `choices` mode.
 
@@ -159,6 +165,8 @@ Call `ask_user` with the `questions` parameter:
 
 **Verify with user:** Ask: "In the multi-question form: (1) Did Question 1 show radio buttons for Python/JavaScript/Go with NO 'Other' option? (2) Did Question 2 show a free text input? (3) Were Submit and Cancel buttons at the bottom?"
 
+FIXME: AI used multi-question mode but with malformed questions parameter, showing incorrect form. Cancel not working, reprompting.
+
 **Fixed (D1/E1):** modelDescription now explicitly describes multi-question mode (C) with examples. AI should use `questions` array for 2+ questions.
 
 ---
@@ -184,6 +192,8 @@ Call `ask_user` with ONLY: `question: "Would you like to use PostgreSQL, MySQL, 
 
 **Verify:** Did VT-7 and VT-8 produce choice buttons? If yes → PASS.
 
+FIXME: VT-7 and VT-8 failed to produce choice buttons due to AI incorrectly using multi-question mode instead of choices mode.
+
 **Fixed (D1/E1):** Rewrote `modelDescription` (package.json + mcpServer.ts) and `copilot-instructions.md` with concise, unambiguous 3-mode guidance. Instructions now reference tool description instead of repeating examples.
 
 ---
@@ -199,14 +209,14 @@ After running all tests:
 | Test  | Description                          | Result        |
 | ----- | ------------------------------------ | ------------- |
 | VT-1  | Queue pause no auto-consume          | **PASS**      |
-| VT-2  | Plan review cancel button            | PASS          |
-| VT-3  | Waiting indicator during plan review | PASS          |
-| VT-4  | Remote plan review reconnect         | **FAIL (C1)** |
-| VT-5  | History info icon                    | PASS          |
-| VT-6  | Template UX rename (Pin/Unpin)       | PASS          |
-| VT-7  | Other button removed from choices    | PASS          |
-| VT-8  | End/Cancel removed from choices      | PASS          |
-| VT-9  | End/Cancel removed from approval     | PASS          |
-| VT-10 | Other removed from multi-question    | PASS          |
-| VT-11 | Comma-separated fallback parsing     | PASS          |
-| VT-12 | Updated AI guidance choices usage    | PASS          |
+| VT-2  | Plan review cancel button            | **PASS**      |
+| VT-3  | Waiting indicator during plan review | **PASS**      |
+| VT-4  | Remote plan review reconnect         | **FAIL**      |
+| VT-5  | History info icon                    | **PASS**      |
+| VT-6  | Template UX rename (Pin/Unpin)       | **PASS**      |
+| VT-7  | Other button removed from choices    | **FAIL**      |
+| VT-8  | End/Cancel removed from choices      | **FAIL**      |
+| VT-9  | End/Cancel removed from approval     | **PASS**      |
+| VT-10 | Other removed from multi-question    | **FAIL**      |
+| VT-11 | Comma-separated fallback parsing     | **PASS**      |
+| VT-12 | Updated AI guidance choices usage    | **FAIL**      |

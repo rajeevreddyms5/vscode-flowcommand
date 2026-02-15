@@ -38,11 +38,9 @@ Call `ask_user` with: `question: "Do you see the queue items still in the queue 
 
 **Fixed (A3 — webview.js routing):** In webview.js line ~1426, added `queueEnabled && queuePaused` check before routing to queue. When queue is paused, `pendingToolCall` items now route to `addToQueue()` instead of direct submit. User-typed prompts still go directly to AI (this is intentional — only existing queue items are held when paused).
 
-**VERIFIED PASS (Feb 15, 2026):** Queue items remain in queue when paused (not auto-consumed). Test passed with updated extension v2.0.3.
+**VERIFIED PASS (Feb 15, 2026):** Queue items remain in queue when paused (not auto-consumed). Test passed with updated extension v2.0.3. Both IDE and remote sessions now have consistent queue pause behavior.
 
-**FIXME (New Remote Issue):** When using remote session, prompt queue items are auto-consumed when clicking send (but works correctly in IDE). Queue pause behavior works correctly in IDE mode.
-
-FIXME (New Remote Issue): When using remote session, prompt queue items are auto-consumed when clicking send (but works correctly in IDE). Queue pause works correctly in IDE mode.
+**Fixed (B1 — Remote Session):** Added queue pause check to `_handleSubmit()` in webviewProvider.ts (line 1969). When queue is paused and remote user clicks send, prompt routes to queue instead of processing immediately. Removes behavior discrepancy between IDE and remote modes.
 
 ---
 

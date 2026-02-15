@@ -1967,6 +1967,19 @@ export class FlowCommandWebviewProvider
    * Handle submit from webview
    */
   private _handleSubmit(value: string, attachments: AttachmentInfo[]): void {
+    // FIXME: Remote session queue auto-consume - check if queue is paused
+    // If paused, add to queue instead of submitting (matches webview.js logic line 1440)
+    if (this._queueEnabled && this._queuePaused && value && value.trim()) {
+      const queuedPrompt: QueuedPrompt = {
+        id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        prompt: value.trim(),
+      };
+      this._promptQueue.push(queuedPrompt);
+      this._saveQueueToDisk();
+      this._updateQueueUI();
+      return; // Early return - prompt queued, don't submit to AI
+    }
+
     if (this._pendingRequests.size > 0 && this._currentToolCallId) {
       const resolve = this._pendingRequests.get(this._currentToolCallId);
       if (resolve) {

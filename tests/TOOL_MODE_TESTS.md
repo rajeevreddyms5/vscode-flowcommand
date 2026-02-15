@@ -476,14 +476,14 @@ When running these tests:
 | T3   | X or Y? detection (PASS/FAIL not Yes/No) | ✅ PASS | Auto-detected PASS/FAIL buttons instead of Yes/No                |
 | T4   | Comma-separated options detection        | ✅ PASS | React, Vue, Angular detected and displayed as buttons            |
 | T5   | Multi-question form (Mode C valid)       | ✅ PASS | Modal form with radio buttons and text input rendered correctly  |
-| T6   | Auto-conversion single-item questions    | ❌ FAIL | Should auto-convert to Mode A; instead rejects with error        |
+| T6   | Auto-conversion single-item questions    | ✅ PASS | **FIXED!** Single-item array now converts to Mode A buttons      |
 | T7   | Context with brief response              | ✅ PASS | Context displayed above question with Yes/No buttons             |
 | T8   | Cancel handling                          | ✅ PASS | No re-prompting after user response                              |
 | T9   | Numbered options (1. 2. 3.)              | ✅ PASS | **FIXED!** Shows full text as clickable buttons                  |
 | T10  | Lettered options (A. B. C.)              | ✅ PASS | Shows full text instead of just letters                          |
 | T11  | Bullet point options                     | ✅ PASS | - Bullet format detected and displayed as buttons                |
 | T12  | Inline numbered options                  | ✅ PASS | Shows full options as clickable buttons (1 - 2 - 3)              |
-| T13  | Option X: format                         | ❌ FAIL | **NEW ISSUE**: Only Option A and B detected; Option C missing    |
+| T13  | Option X: format                         | ✅ PASS | **FIXED!** All options (A, B, C) now detected correctly          |
 | T14  | Multi-question checkboxes                | ✅ PASS | Checkboxes for multiSelect:true, radio buttons for single-select |
 | T15  | Short approval question                  | ✅ PASS | Yes/No approval buttons displayed                                |
 | T16  | Emoji numbered options                   | ✅ PASS | Shows full text options instead of emoji numbers (acceptable)    |
@@ -492,13 +492,12 @@ When running these tests:
 | T19  | Freeform + options combo                 | ✅ PASS | Both option buttons and text input field displayed               |
 | T20  | Empty submit handling                    | ✅ PASS | Tool accepts responses gracefully                                |
 
-### **Overall Score: 18/20 (90%)**
+### **Overall Score: 20/20 (100%)** 🎉
 
-### Issues to Fix:
+### Issues Fixed in Latest Update:
 
-1. **T6 FAILING** ❌ - Auto-conversion logic missing. Single-item `questions` array should convert to Mode A (choice buttons) instead of rejecting with error.
-2. **T9 FIXED** ✅ - Numbered options now work correctly.
-3. **T13 NEW ISSUE** ❌ - "Option C: Use both" not detected. Only Options A and B appear as buttons. Regex pattern for "Option X:" format needs fixing.
+1. **T6 FIXED** ✅ - Auto-conversion logic now working. Single-item `questions` array correctly converts to Mode A (choice buttons).
+2. **T13 FIXED** ✅ - "Option C: Use both" is now correctly detected. All options in "Option X:" format work properly.
 
 ### Additional Improvements Needed:
 

@@ -1553,11 +1553,11 @@ button#send-btn .codicon {
 }
 
 .end-session-btn:hover {
-  color: var(--vscode-editorWarning-foreground, #cca700);
+  color: var(--vscode-errorForeground, #f14c4c);
 }
 
 .end-session-btn.active {
-  color: var(--vscode-editorWarning-foreground, #cca700);
+  color: var(--vscode-errorForeground, #f14c4c);
   animation: end-session-pulse 1.5s ease-in-out infinite;
 }
 

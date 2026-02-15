@@ -192,10 +192,7 @@ export class McpServerManager {
                     .describe("Allow custom text input in addition to options"),
                 }),
               )
-              .min(
-                2,
-                "Use 'question' + 'choices' for single question, not 'questions' array",
-              )
+              .min(1, "questions array must have at least 1 item")
               .max(4, "Maximum 4 questions allowed")
               .optional()
               .describe(

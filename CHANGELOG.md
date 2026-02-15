@@ -2,6 +2,18 @@
 
 All notable changes to FlowCommand will be documented in this file.
 
+## [2.0.7] - 2025-02-15
+
+### Fixed
+
+- **T6**: Single-item `questions` array now auto-converts to Mode A (choice buttons) instead of rejecting — `minItems` changed from 2→1 in both VS Code tool schema and MCP Zod schema
+- **T13**: "Option X:" pattern now detects options containing the letter 'o' (e.g., "Use both") — fixed case-insensitive `[^O\n]` regex exclusion
+
+### Added
+
+- **Auto-focus input**: Input field now receives focus automatically when a new question arrives and the panel is visible, so users can start typing immediately
+- **End button red color**: End session button now shows red on hover/active instead of yellow, better signifying the destructive nature of the action
+
 ## [2.0.6] - 2025-02-15
 
 ### Fixed

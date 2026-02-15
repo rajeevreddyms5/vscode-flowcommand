@@ -4459,7 +4459,7 @@ export class FlowCommandWebviewProvider
     // Pattern 3: "Option A:" or "Option 1:" style (supports multi-digit numbers like Option 10)
     // Search entire text for this pattern
     const optionPattern =
-      /option\s+([A-Za-z]|\d+)\s*:\s*([^O\n]+?)(?=\s*Option\s+(?:[A-Za-z]|\d+)|\s*$|\n)/gi;
+      /option\s+([A-Za-z]|\d+)\s*:\s*([^\n]+?)(?=\s*Option\s+(?:[A-Za-z]|\d+)\s*:|\s*$|\n)/gi;
     const optionMatches: { id: string; text: string }[] = [];
 
     while ((match = optionPattern.exec(text)) !== null) {

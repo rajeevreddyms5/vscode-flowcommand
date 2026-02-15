@@ -1952,9 +1952,14 @@
       // Interactive approval disabled - just focus input for manual typing
       hideApprovalModal();
       hideChoicesBar();
-      if (chatInput) {
+    }
+
+    // Auto-focus input field so user can start typing immediately
+    // Uses setTimeout to ensure focus happens after DOM updates and panel reveal
+    if (chatInput) {
+      setTimeout(function () {
         chatInput.focus();
-      }
+      }, 50);
     }
   }
 

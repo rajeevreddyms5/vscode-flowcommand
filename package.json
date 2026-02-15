@@ -48,7 +48,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User",
-        "modelDescription": "MODES — pick exactly one: (A) Single question + choices → pass 'question' and 'choices' params. Shows clickable buttons above the text input. User can click a button OR type custom text. Example: { question: 'Which DB?', choices: [{label:'1. PostgreSQL',value:'postgresql'},{label:'2. MySQL',value:'mysql'},{label:'3. SQLite',value:'sqlite'}] }. (B) Single open-ended question → pass 'question' param only (no choices, no questions array). Uses the default text input — do NOT add your own text field. Example: { question: 'What would you like to do next?' }. (C) Multi-question form → pass 'questions' array (2-4 items). NEVER for a single question. Each item needs 'header' (≤12 chars) and 'question'. Add 'options' array for radio/checkbox selection; omit for free text. Set 'multiSelect: true' for checkboxes. Form has one Submit + Cancel at the bottom. Example: { questions: [{header:'Language',question:'What language?',options:[{label:'Python'},{label:'Go'}]},{header:'Framework',question:'What framework?'}] }. RULES: NEVER use 'questions' array for a single question — use mode A or B. ALWAYS use 'choices' when the question has predefined options. ALWAYS populate 'context' with your FULL response (explanations, code, analysis). The user reads this from FlowCommand's remote UI — without it they see nothing.",
+        "modelDescription": "MODES — pick exactly one: (A) Single question + choices → pass 'question' + 'choices'. Shows choice BUTTONS above the always-on text input. No modal, no Submit/Cancel. User clicks button OR types custom. Example: { question: 'Which DB?', choices: [{label:'1. PostgreSQL',value:'postgresql'},{label:'2. MySQL',value:'mysql'},{label:'3. SQLite',value:'sqlite'}] }. (B) Single open-ended question → pass 'question' only. Uses the always-on text input. No modal, no Submit/Cancel, no form. Example: { question: 'What would you like to do next?' }. (C) Multi-question form → pass 'questions' array (2-4 items). Shows MODAL with Submit/Cancel. Use ONLY when gathering 2+ pieces of info. Each item needs 'header' (≤12 chars) + 'question'. Add 'options' for radio/checkbox; omit for free text. Set 'multiSelect: true' for checkboxes. Example: { questions: [{header:'Language',question:'What language?',options:[{label:'Python'},{label:'Go'}]},{header:'Framework',question:'What framework?'}] }. RULES: NEVER use 'questions' for single question — use mode A or B. ALWAYS use 'choices' when question has predefined options. ALWAYS populate 'context' with your FULL response (explanations, code, analysis). The user reads this from FlowCommand's remote UI — without it they see nothing.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -60,11 +60,11 @@
             },
             "question": {
               "type": "string",
-              "description": "The question or prompt to display to the user. The user will see this question along with a freeform text input where they can type any response."
+              "description": "Question text (mode A or B). Uses FlowCommand's always-on text input."
             },
             "choices": {
               "type": "array",
-              "description": "Optional list of interactive choice buttons. When provided, buttons are shown above the text input for quick selection. The user can also type a custom response in the text input instead of clicking a button. ALWAYS provide this for questions with predefined options.",
+              "description": "Choice buttons for mode A. Shown above text input. User can click or type custom.",
               "items": {
                 "type": "object",
                 "properties": {
@@ -85,7 +85,7 @@
             },
             "questions": {
               "type": "array",
-              "description": "Array of 1-4 questions to ask the user at once in a form layout. Use this instead of 'question' when you need to gather multiple pieces of information simultaneously. Each question can have predefined options or accept free-form text input.",
+              "description": "Array of 2-4 questions (mode C). Opens form modal with Submit/Cancel.",
               "items": {
                 "type": "object",
                 "properties": {

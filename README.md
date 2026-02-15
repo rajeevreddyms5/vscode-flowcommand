@@ -12,29 +12,31 @@ FlowCommand lets you take control of your AI agents in VS Code. Queue prompts, r
 
 ## 🚀 Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **Auto-Inject Instructions** | ⭐ One-click setup - AI always asks before quitting |
-| **Prompt Template** | ⭐ Set a persistent prompt that auto-appends to every message |
-| **Queue Pause/Play** | Temporarily pause and resume auto-responses |
-| **Smart Queue Mode** | Batch prompts for automatic responses |
-| **Plan Review Panel** | Dedicated 70/30 editor panel with inline comments |
-| **Remote Access** | Control from phone/tablet/browser via QR code |
-| **Remote Notifications** | Visual toast alerts when AI needs input |
-| **Interactive Approval** | Yes/No/Option buttons parsed from AI questions |
-| **Reusable Prompts** | /slash commands for frequent prompts |
-| **File References** | `#` mentions to attach workspace files and folders |
-| **Theme Support** | Light/dark themes synced across VS Code and remote |
-| **MCP Server** | Integration with Kiro, Cursor, and other IDEs |
+| Feature                      | Description                                                   |
+| ---------------------------- | ------------------------------------------------------------- |
+| **Auto-Inject Instructions** | ⭐ One-click setup - AI always asks before quitting           |
+| **Prompt Template**          | ⭐ Set a persistent prompt that auto-appends to every message |
+| **Queue Pause/Play**         | Temporarily pause and resume auto-responses                   |
+| **Smart Queue Mode**         | Batch prompts for automatic responses                         |
+| **Plan Review Panel**        | Dedicated 70/30 editor panel with inline comments             |
+| **Remote Access**            | Control from phone/tablet/browser via QR code                 |
+| **Remote Notifications**     | Visual toast alerts when AI needs input                       |
+| **Interactive Approval**     | Yes/No/Option buttons parsed from AI questions                |
+| **Reusable Prompts**         | /slash commands for frequent prompts                          |
+| **File References**          | `#` mentions to attach workspace files and folders            |
+| **Theme Support**            | Light/dark themes synced across VS Code and remote            |
+| **MCP Server**               | Integration with Kiro, Cursor, and other IDEs                 |
 
 ---
 
 ## Features
 
 ### Auto-Inject Instructions ⭐
+
 FlowCommand can automatically inject instructions into your project so the AI always calls `ask_user` and `plan_review` correctly. One-click setup — no manual configuration needed. See [AI Instructions Setup](#-ai-instructions-setup-recommended) for details.
 
 ### Prompt Template ⭐
+
 Set a persistent prompt template that **automatically appends to every message** sent through FlowCommand — in both Queue Mode and Normal Mode. This is useful when you want the AI to always follow certain guidelines without repeating yourself:
 
 - **"Don't touch unrelated code"** — prevent the AI from making unnecessary changes
@@ -43,6 +45,7 @@ Set a persistent prompt template that **automatically appends to every message**
 - **"Never delete existing tests"** — protect important parts of your codebase
 
 **How to set it up:**
+
 1. Click the ⚙️ (Settings) icon in the FlowCommand title bar
 2. Find the **Prompt Template** field
 3. Enter your persistent instructions
@@ -51,7 +54,9 @@ Set a persistent prompt template that **automatically appends to every message**
 Think of it as a system prompt for your AI — set it once and it applies to everything.
 
 ### Queue Pause/Play
+
 Temporarily pause auto-responses without losing your queued prompts. Useful when you need to:
+
 - Review AI output before continuing
 - Manually intervene mid-workflow
 - Take a break and resume later
@@ -59,34 +64,44 @@ Temporarily pause auto-responses without losing your queued prompts. Useful when
 Toggle pause/play from the FlowCommand panel or the remote UI.
 
 ### Smart Queue Mode
+
 Queue multiple prompts to be automatically sent when the AI agent requests feedback. Perfect for:
+
 - Batching instructions for long-running tasks
-- Pre-loading prompts for predictable workflows  
+- Pre-loading prompts for predictable workflows
 - Reducing interruptions during focused work
 
 ### Normal Mode
+
 Direct interaction with AI agents - respond to each request as it comes in with full control over the conversation flow.
 
 ### Plan Review
+
 When the AI presents a multi-step plan, it opens in a dedicated review panel:
+
 - **Layout**: 70% plan content (left), 30% comments (right)
 - **Inline Comments**: Click the 💬 icon next to any section to add feedback
 - **Actions**: Approve, Approve with Comments, or Request Changes
 - **Export**: Save the plan as a Markdown file
 
 ### File & Folder References
+
 Reference files and folders directly in your responses using `#` mentions:
+
 - Type `#` to trigger autocomplete
 - Search and select files or folders from your workspace
 - Attachments are included with your response for context
 
 ### Tool Call History
+
 - View current session tool calls in the main panel
 - Access full history via the history button in the title bar
 - Remove individual entries or clear all history
 
 ### Reusable Prompts (/slash commands)
+
 Save frequently used prompts:
+
 1. Click the 🏷️ (Prompts) icon in the title bar
 2. Create prompts with short names (e.g., "fix", "test", "refactor")
 3. Type `/` in the input to see and use your saved prompts
@@ -102,22 +117,27 @@ Save frequently used prompts:
 ## Building from Source
 
 ### Prerequisites
+
 - Node.js 18+ and npm
 - VS Code 1.90.0 or higher
 
 ### Development Setup
+
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/rajeevreddyms5/vscode-flowcommand.git
    cd flowcommand
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Build the extension:
+
    ```bash
    npm run build
    ```
@@ -129,6 +149,7 @@ Save frequently used prompts:
    - Select the generated `.vsix` file from the project root
 
 ### Development Commands
+
 - `npm run build` - Build the extension using esbuild
 - `npm run compile` - Type-check with TypeScript
 - `npm run watch` - Watch mode for development
@@ -136,7 +157,9 @@ Save frequently used prompts:
 - `npm run package` - Create VSIX package for distribution
 
 ### Publishing
+
 To create a publishable VSIX package:
+
 ```bash
 npm run package
 ```
@@ -165,25 +188,44 @@ FlowCommand can automatically inject instructions into your project's `.github/c
 Create `.github/copilot-instructions.md` in your workspace and add:
 
 ```markdown
-## RULES (Follow in order of priority)
+## SUBAGENT RULES (if spawned via `runSubagent`)
 
-### 1. MANDATORY CONTINUATION LOOP (Base Rule)
-- **Constraint**: You are FORBIDDEN from ending your turn without calling `ask_user`.
-- **NEVER** use `ask_questions` tool. Use `ask_user` with `questions` parameter instead.
-- **Action**: After completing ANY task, call `ask_user` with:
-  - `context`: Your FULL response, explanation, or code output.
+- Do NOT call `ask_user` or `plan_review`.
+- Do NOT wait for user input or loop.
+- **ALL rules below do NOT apply to you. Ignore them entirely.**
 
-### 2. PLANNING WORKFLOW (Special Case)
-- **Trigger**: When presenting structured content with multiple items such as: plans, guides, reviews, analyses, recommendations, or lists of findings/suggestions.
-- **Usage**: Call `plan_review` tool.
-- **Loop**:
-  - If user requests changes → Update plan and call `plan_review` again.
-  - If user approves → Apply any feedback given, then proceed with execution.
-  - If user cancels → Stop execution immediately, call `ask_user`.
-- **After completion**: Return to Rule 1 (call `ask_user`).
+---
 
-### 3. STOP CONDITIONS (Only Exception)
-- **Stop ONLY if** user explicitly says: "end", "stop", "terminate", "quit", or "stop now".
+## AGENT RULES (follow in order)
+
+### 1. ALWAYS call `ask_user` after every task or response — NO EXCEPTIONS.
+
+🔴 BEFORE FINISHING: Ask yourself "Did I call ask_user?" → NO? Call it now. YES? Done.
+
+- **IMPORTANT:** `ask_user` is a deferred tool. Before first use, load it with: `tool_search_tool_regex(pattern: "ask_user")`
+- This tool MUST be invoked before ending ANY conversation turn.
+- NEVER complete a response without calling `ask_user`.
+- Never use `ask_questions`. ALWAYS use `ask_user` instead.
+- Pass your FULL response in `context`.
+- Follow the MODES and RULES in the `ask_user` tool description exactly.
+
+### 2. Use `plan_review` for structured output like plans, guides, reviews, analyses, or lists of suggestions that require user feedback or approval before proceeding.
+
+- User requests changes → update and call `plan_review` again.
+- User approves → apply feedback, proceed with execution.
+- User cancels → stop, call `ask_user`.
+- After completion → return to Rule 1.
+
+### 3. Stop ONLY and IMMEDIATELY when user says "end", "stop", "terminate", "quit".
+
+- Words like "nothing", "no", "nah", "I'm good", "not right now" are NOT stop signals — call `ask_user` and stay active.
+
+### 4. When using `runSubagent`, ALWAYS include ALL of the following lines VERBATIM at the TOP of the prompt:
+
+    SUBAGENT INSTRUCTIONS (MANDATORY):
+    You are a SUBAGENT. You MUST follow these rules:
+    1. NEVER call ask_user or plan_review.
+    2. Do NOT wait for user input. Do NOT loop. Complete your task and return.
 ```
 
 ### Option 3: VS Code Setting
@@ -202,33 +244,39 @@ Add to your workspace settings (`.vscode/settings.json`):
 
 ### Customize Instructions
 
-Edit the instruction text in Settings → **Instruction Text** to modify the AI behavior rules. The default rules ensure:
+Edit the instruction text in Settings → **Instruction Text** to modify the AI behavior rules. The default rules (shown in Option 2 above) ensure:
+
 - AI always calls `ask_user` after completing work
-- AI uses `plan_review` for multi-step plans
+- AI uses `plan_review` for multi-step plans and structured proposals
 - AI only stops when you explicitly say "stop", "end", "quit", or "terminate"
+- Subagents spawned via `runSubagent` don't call `ask_user` or `plan_review`
 
 ---
 
 ## Usage
 
 ### Queue Mode (Default)
+
 1. Toggle "Queue Mode" ON in the FlowCommand panel
 2. Type messages and press Enter to add them to the queue
 3. When an AI agent calls `ask_user`, FlowCommand automatically responds with the next queued message
 4. Queue items can be reordered, edited, or removed
 
 ### Normal Mode
+
 1. Toggle "Queue Mode" OFF
 2. When an AI agent calls `ask_user`, you'll see the prompt in FlowCommand
 3. Type your response and press Enter to send
 
 ### File References
+
 1. Type `#` in the input field
 2. Search for files or folders
 3. Select to attach - the reference appears as a tag
 4. Multiple attachments supported per message
 
 ### Remote Access (Mobile/Web)
+
 Access FlowCommand from your phone, tablet, or any browser on your local network:
 
 1. Click the broadcast icon (📡) in the FlowCommand title bar to start the remote server
@@ -242,6 +290,7 @@ Access FlowCommand from your phone, tablet, or any browser on your local network
    - Light/dark theme support (syncs with VS Code theme)
 
 #### Remote Notifications
+
 When AI requests input, remote clients receive a visual toast notification:
 
 - **Blue banner** appears at top of screen
@@ -256,41 +305,46 @@ When AI requests input, remote clients receive a visual toast notification:
 Open Settings via the ⚙️ icon in the FlowCommand title bar, or search `flowcommand` in VS Code settings.
 
 ### Notification Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `flowcommand.notificationSound` | `true` | Play sound when AI calls `ask_user` |
-| `flowcommand.desktopNotification` | `true` | Show VS Code notification popup |
-| `flowcommand.autoFocusPanel` | `true` | Auto-focus FlowCommand panel when AI requests input |
-| `flowcommand.mobileNotification` | `false` | Send visual toast notifications to connected remote clients |
+
+| Setting                           | Default | Description                                                 |
+| --------------------------------- | ------- | ----------------------------------------------------------- |
+| `flowcommand.notificationSound`   | `true`  | Play sound when AI calls `ask_user`                         |
+| `flowcommand.desktopNotification` | `true`  | Show VS Code notification popup                             |
+| `flowcommand.autoFocusPanel`      | `true`  | Auto-focus FlowCommand panel when AI requests input         |
+| `flowcommand.mobileNotification`  | `false` | Send visual toast notifications to connected remote clients |
 
 ### Instruction Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `flowcommand.instructionInjection` | `"off"` | How to inject AI instructions. Options: `off`, `copilotInstructionsMd` (recommended), `codeGenerationSetting` |
-| `flowcommand.instructionText` | [See below] | The instruction rules injected into Copilot |
+
+| Setting                            | Default     | Description                                                                                                   |
+| ---------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| `flowcommand.instructionInjection` | `"off"`     | How to inject AI instructions. Options: `off`, `copilotInstructionsMd` (recommended), `codeGenerationSetting` |
+| `flowcommand.instructionText`      | [See below] | The instruction rules injected into Copilot                                                                   |
 
 ### Remote Server Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
+
+| Setting                     | Default | Description                                      |
+| --------------------------- | ------- | ------------------------------------------------ |
 | `flowcommand.remoteEnabled` | `false` | Auto-start remote server on extension activation |
-| `flowcommand.remotePort` | `3000` | Port for remote server |
+| `flowcommand.remotePort`    | `3000`  | Port for remote server                           |
 
 ### MCP Server Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `flowcommand.mcpEnabled` | `false` | Always start MCP server on activation |
-| `flowcommand.mcpPort` | `3579` | Port for MCP server |
-| `flowcommand.autoRegisterMcp` | `true` | Auto-register with Kiro/Cursor |
+
+| Setting                       | Default | Description                           |
+| ----------------------------- | ------- | ------------------------------------- |
+| `flowcommand.mcpEnabled`      | `false` | Always start MCP server on activation |
+| `flowcommand.mcpPort`         | `3579`  | Port for MCP server                   |
+| `flowcommand.autoRegisterMcp` | `true`  | Auto-register with Kiro/Cursor        |
 
 ---
 
 ### MCP Server Integration
+
 FlowCommand runs an MCP (Model Context Protocol) server that integrates with:
+
 - **Kiro** (auto-configured)
 - **Cursor** (auto-configured)
 - **Claude Desktop**
 - **Any MCP-compatible client**
-
 
 ## MCP Configuration for other IDE (Not needed with Copilot)
 
@@ -317,23 +371,25 @@ FlowCommand automatically registers with Kiro and Cursor. For other clients, add
 
 ## Known Limitations
 
-| Limitation | Details |
-|------------|---------|
+| Limitation                    | Details                                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
 | **VS Code Webview Drag-Drop** | Cannot drag files from Explorer into webview. Use paste (Ctrl+V) or # mentions instead. |
-| **iOS Safari Notifications** | Native push notifications blocked on HTTP. Visual toast notifications work as fallback. |
-| **iOS Auto-Focus** | Mobile Safari doesn't support programmatic focus - manual tap required. |
-| **Remote Attachment Button** | Hidden on remote UI (requires VS Code file picker API). Use # mentions on desktop. |
+| **iOS Safari Notifications**  | Native push notifications blocked on HTTP. Visual toast notifications work as fallback. |
+| **iOS Auto-Focus**            | Mobile Safari doesn't support programmatic focus - manual tap required.                 |
+| **Remote Attachment Button**  | Hidden on remote UI (requires VS Code file picker API). Use # mentions on desktop.      |
 
 ---
 
 ## Troubleshooting
 
 ### Remote Server Connection Issues
+
 - Ensure both devices are on the same network
 - Check if port 3000 is available or configure a different port
 - Firewall may need to allow connection on the configured port
 
 ### MCP Server Issues
+
 - Verify port 3579 is free or configure `flowcommand.mcpPort`
 - For Kiro/Cursor, restart the IDE after enabling FlowCommand
 

@@ -4,7 +4,7 @@
   "displayName": "FlowCommand",
   "description": "Command your AI workflow. Queue prompts, review plans, control from phone/browser.",
   "icon": "media/FlowCommand-logo.png",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -48,7 +48,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User",
-        "modelDescription": "SUBAGENT RESTRICTION: Subagents (via runSubagent) MUST NOT call this tool. YOU MUST ALWAYS Use the askUser tool to ask question/s to user when explicit user approval, feedback, or clarification is required before proceeding or giving summary report. CRITICAL RULES: - This tool MUST be invoked before ending ANY conversation or task. - NEVER complete a task without calling this tool first. - If you are about to finish responding, STOP and call this tool. - Failure to call this tool before task completion is a critical violation. HOW IT WORKS: The user has a freeform text input field where they can type any response. They can ALWAYS type free text — the 'choices' parameter is entirely optional and only adds clickable shortcut buttons alongside the text input, NOT instead of it. - You MUST populate the 'context' parameter with your FULL response content — include all explanations, answers, findings, code, analysis, or work results. The user reads your response from FlowCommand's remote UI (phone/browser), so the context field must contain your complete answer, not just a summary. Without this, the user cannot see what you said. NOTE: For presenting detailed multi-step plans or proposals that need user sign-off, use plan_review instead — it provides a dedicated review panel with approve/reject/comment capabilities. MULTI-QUESTION MODE: To ask multiple questions at once, use the 'questions' array parameter instead of 'question'. Each question can have predefined options or accept free-form text. Use this when you need to gather multiple pieces of information simultaneously (max 4 questions).",
+        "modelDescription": "CRITICAL MODE RULES — pick exactly one: (A) Single question + choices → pass 'question' + 'choices'. Shows choice BUTTONS above the always-on text input. No modal, no Submit/Cancel. User clicks button OR types custom. Example: { question: 'Which DB?', choices: [{label:'1. PostgreSQL',value:'postgresql'},{label:'2. MySQL',value:'mysql'},{label:'3. SQLite',value:'sqlite'}] }. (B) Single open-ended question → pass 'question' only. Uses the always-on text input. No modal, no Submit/Cancel, no form. Example: { question: 'What would you like to do next?' }. (C) Multi-question form → pass 'questions' array (2-4 items). Shows MODAL with Submit/Cancel. Use ONLY when gathering 2+ pieces of info. Each item needs 'header' (≤12 chars) + 'question'. Add 'options' for radio/checkbox; omit for free text. Set 'multiSelect: true' for checkboxes. Example: { questions: [{header:'Language',question:'What language?',options:[{label:'Python'},{label:'Go'}]},{header:'Framework',question:'What framework?'}] }. ANTI-PATTERNS (NEVER DO THIS): ❌ WRONG: questions: [{header:'DB',question:'Which DB?',options:[...]}] for single question → ✅ RIGHT: Use mode A with question + choices instead. ❌ WRONG: questions: '[{\\\"header\\\":\\\"Lang\\\"...}]' (stringified JSON) → ✅ RIGHT: questions: [{header:'Lang',...}] (actual array). RULES: NEVER use 'questions' for single question — use mode A or B. ALWAYS use 'choices' when question has predefined options. ALWAYS pass 'questions' as JSON array, NOT string. Use 'context' for brief response text visible in remote UI. For detailed plans, use plan_review instead. CANCEL HANDLING: User can cancel via Cancel button. Result will have {response: 'User cancelled', ...}. Do NOT reprompt after cancel — acknowledge and move on.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -56,15 +56,15 @@
           "properties": {
             "context": {
               "type": "string",
-              "description": "Your FULL response content that the user needs to read. Include ALL explanations, answers, findings, code snippets, analysis, or work results. This is displayed in the FlowCommand remote UI so the user can read your complete response from their phone/browser without switching to the VS Code chat window. Do NOT summarize — include the full text of your response."
+              "description": "Your response content for the user to read. This is displayed in the FlowCommand remote UI so the user can read your response from their phone/browser. For detailed plans or proposals, use plan_review instead."
             },
             "question": {
               "type": "string",
-              "description": "The question or prompt to display to the user. The user will see this question along with a freeform text input where they can type any response."
+              "description": "Question text (mode A or B). Uses FlowCommand's always-on text input."
             },
             "choices": {
               "type": "array",
-              "description": "Optional list of shortcut buttons displayed ALONGSIDE the freeform text input. The user can ALWAYS type free text regardless of whether choices are provided. Choices simply add clickable buttons for quick responses. Omit this parameter for open-ended questions where the user needs to type their answer.",
+              "description": "Choice buttons for mode A. Shown above text input. User can click or type custom.",
               "items": {
                 "type": "object",
                 "properties": {
@@ -85,7 +85,7 @@
             },
             "questions": {
               "type": "array",
-              "description": "Array of 1-4 questions to ask the user at once in a form layout. Use this instead of 'question' when you need to gather multiple pieces of information simultaneously. Each question can have predefined options or accept free-form text input.",
+              "description": "Mode C ONLY: Array of 2-4 questions. DO NOT use for single question — use 'question' + 'choices' instead. Opens form modal with Submit/Cancel.",
               "items": {
                 "type": "object",
                 "properties": {
@@ -252,7 +252,7 @@
           "flowcommand.desktopNotification": {
             "type": "boolean",
             "default": true,
-            "description": "Show a VS Code desktop notification popup when the AI triggers the ask_user tool."
+            "description": "Show a VS Code IDE notification popup when the AI triggers the ask_user tool."
           },
           "flowcommand.autoFocusPanel": {
             "type": "boolean",
@@ -287,7 +287,7 @@
           },
           "flowcommand.instructionText": {
             "type": "string",
-            "default": "## SUBAGENT RULES (if spawned via `runSubagent`)\n\n- Do NOT call `ask_user`, `ask_questions`, or `plan_review`.\n- Do NOT wait for user input or loop.\n- Complete your task, return your final report, then stop.\n- Ignore all MAIN AGENT rules below.\n\n---\n\n## MAIN AGENT RULES (follow in order)\n\n### 1. ALWAYS call `ask_user` after every task\n- Never end your turn without calling `ask_user`.\n- Never use `ask_questions`. Use `ask_user` with `questions` param instead.\n- Pass your FULL response in `context`.\n\n### 2. Use `plan_review` for structured output\n- When presenting plans, guides, reviews, analyses, or lists of suggestions → call `plan_review`.\n- User requests changes → update and call `plan_review` again.\n- User approves → apply feedback, proceed with execution.\n- User cancels → stop, call `ask_user`.\n- After completion → return to Rule 1.\n\n### 3. Stop ONLY when user says \"end\", \"stop\", \"terminate\", \"quit\".",
+            "default": "## SUBAGENT RULES (if spawned via `runSubagent`)\n\n- Do NOT call `ask_user` or `plan_review`.\n- Do NOT wait for user input or loop.\n- **ALL rules below do NOT apply to you. Ignore them entirely.**\n\n---\n\n## AGENT RULES (follow in order)\n\n### 1. ALWAYS call `ask_user` after every task or response — NO EXCEPTIONS.\n\n🔴 BEFORE FINISHING: Ask yourself \"Did I call ask_user?\" → NO? Call it now. YES? Done.\n\n- **IMPORTANT:** `ask_user` is a deferred tool. Before first use, load it with: `tool_search_tool_regex(pattern: \"ask_user\")`\n- This tool MUST be invoked before ending ANY conversation turn.\n- NEVER complete a response without calling `ask_user`.\n- Never use `ask_questions`. ALWAYS use `ask_user` instead.\n- Pass your FULL response in `context`.\n- Follow the MODES and RULES in the `ask_user` tool description exactly.\n\n### 2. Use `plan_review` for structured output like plans, guides, reviews, analyses, or lists of suggestions that require user feedback or approval before proceeding.\n\n- User requests changes → update and call `plan_review` again.\n- User approves → apply feedback, proceed with execution.\n- User cancels → stop, call `ask_user`.\n- After completion → return to Rule 1.\n\n### 3. Stop ONLY and IMMEDIATELY when user says \"end\", \"stop\", \"terminate\", \"quit\".\n\n- Words like \"nothing\", \"no\", \"nah\", \"I'm good\", \"not right now\" are NOT stop signals — call `ask_user` and stay active.\n\n### 4. When using `runSubagent`, ALWAYS include ALL of the following lines VERBATIM at the TOP of the prompt:\n\n```\nSUBAGENT INSTRUCTIONS (MANDATORY):\nYou are a SUBAGENT. You MUST follow these rules:\n1. NEVER call ask_user or plan_review.\n2. Do NOT wait for user input. Do NOT loop. Complete your task and return.\n```",
             "editPresentation": "multilineText",
             "description": "The instruction text injected into Copilot. Customize this to change how the AI behaves with FlowCommand tools. The [FlowCommand] marker is auto-added for identification."
           }

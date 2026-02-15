@@ -1,53 +1,53 @@
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import { FlowCommandWebviewProvider } from './webview/webviewProvider';
-import { getImageMimeType } from './utils/imageUtils';
+import * as vscode from "vscode";
+import * as fs from "fs";
+import { FlowCommandWebviewProvider } from "./webview/webviewProvider";
+import { getImageMimeType } from "./utils/imageUtils";
 
 // Types for ask_questions/multi-question mode
 export interface QuestionOption {
-    label: string;
-    description?: string;
-    recommended?: boolean;
+  label: string;
+  description?: string;
+  recommended?: boolean;
 }
 
 export interface Question {
-    header: string;
-    question: string;
-    options?: QuestionOption[];
-    multiSelect?: boolean;
-    allowFreeformInput?: boolean;
+  header: string;
+  question: string;
+  options?: QuestionOption[];
+  multiSelect?: boolean;
+  allowFreeformInput?: boolean;
 }
 
 export interface Input {
-    // Single question mode (original ask_user)
-    question?: string;
-    context?: string;
-    choices?: Array<{ label: string; value: string }>;
-    // Multi-question mode (ask_questions functionality)
-    questions?: Question[];
+  // Single question mode (original ask_user)
+  question?: string;
+  context?: string;
+  choices?: Array<{ label: string; value: string }>;
+  // Multi-question mode (ask_questions functionality)
+  questions?: Question[];
 }
 
 export interface AskUserToolResult {
-    response: string;
-    attachments: string[];
+  response: string;
+  attachments: string[];
 }
 
 export interface QuestionAnswer {
-    header: string;
-    selectedOptions?: string[];
-    freeformText?: string;
+  header: string;
+  selectedOptions?: string[];
+  freeformText?: string;
 }
 
 export interface AskQuestionsResult {
-    answers: QuestionAnswer[];
+  answers: QuestionAnswer[];
 }
 
 /**
  * Reads a file as Uint8Array for efficient binary handling
  */
 async function readFileAsBuffer(filePath: string): Promise<Uint8Array> {
-    const buffer = await fs.promises.readFile(filePath);
-    return new Uint8Array(buffer);
+  const buffer = await fs.promises.readFile(filePath);
+  return new Uint8Array(buffer);
 }
 
 /**
@@ -55,25 +55,25 @@ async function readFileAsBuffer(filePath: string): Promise<Uint8Array> {
  * Returns both the promise and a dispose function to clean up the event listener.
  */
 function createCancellationPromise(token: vscode.CancellationToken): {
-    promise: Promise<never>;
-    dispose: () => void;
+  promise: Promise<never>;
+  dispose: () => void;
 } {
-    let disposable: vscode.Disposable | undefined;
+  let disposable: vscode.Disposable | undefined;
 
-    const promise = new Promise<never>((_, reject) => {
-        if (token.isCancellationRequested) {
-            reject(new vscode.CancellationError());
-            return;
-        }
-        disposable = token.onCancellationRequested(() => {
-            reject(new vscode.CancellationError());
-        });
+  const promise = new Promise<never>((_, reject) => {
+    if (token.isCancellationRequested) {
+      reject(new vscode.CancellationError());
+      return;
+    }
+    disposable = token.onCancellationRequested(() => {
+      reject(new vscode.CancellationError());
     });
+  });
 
-    return {
-        promise,
-        dispose: () => disposable?.dispose()
-    };
+  return {
+    promise,
+    dispose: () => disposable?.dispose(),
+  };
 }
 
 /**
@@ -82,198 +82,294 @@ function createCancellationPromise(token: vscode.CancellationToken): {
  * Supports both single question mode and multi-question mode (ask_questions)
  */
 export async function askUser(
-    params: Input,
-    provider: FlowCommandWebviewProvider,
-    token: vscode.CancellationToken
+  params: Input,
+  provider: FlowCommandWebviewProvider,
+  token: vscode.CancellationToken,
 ): Promise<AskUserToolResult> {
-    // Check if already cancelled before starting
-    if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-    }
+  // Check if already cancelled before starting
+  if (token.isCancellationRequested) {
+    throw new vscode.CancellationError();
+  }
 
-    // Create cancellation promise with cleanup capability
-    const cancellation = createCancellationPromise(token);
+  // Create cancellation promise with cleanup capability
+  const cancellation = createCancellationPromise(token);
 
-    try {
-        // Detect multi-question mode (ask_questions functionality)
-        if (params.questions && params.questions.length > 0) {
-            // Multi-question mode: show all questions in a form
-            const result = await Promise.race([
-                provider.waitForMultiQuestionResponse(params.questions),
-                cancellation.promise
-            ]);
+  try {
+    // Detect multi-question mode (ask_questions functionality)
+    if (params.questions && params.questions.length > 0) {
+      // Validate questions parameter
+      if (!Array.isArray(params.questions)) {
+        return {
+          response: JSON.stringify({
+            error:
+              "VALIDATION ERROR: 'questions' must be an array, not a string. Do not stringify the questions array.",
+            hint: "Use questions: [{header: 'Lang', question: 'What language?'}] not questions: '[{...}]'",
+          }),
+          attachments: [],
+        };
+      }
 
-            // Handle cancellation
-            if (result.cancelled) {
-                return {
-                    response: result.value,
-                    attachments: []
-                };
-            }
+      // AUTO-CONVERT: Single-item questions array → single question mode (mode A or B)
+      // This handles AI mistakes gracefully - user gets the correct UI without error
+      if (params.questions.length === 1) {
+        const q = params.questions[0];
+        console.log(
+          "[FlowCommand] Auto-converting single-item questions array to mode A/B:",
+          q.question,
+        );
 
-            // Return the multi-question response (already JSON formatted by provider)
-            return {
-                response: result.value,
-                attachments: []
-            };
-        }
+        // Convert options to choices format if present
+        const convertedChoices = q.options?.map((opt) => ({
+          label: opt.label,
+          value: opt.label,
+        }));
 
-        // Single question mode (original ask_user behavior)
-        // Race the user response against cancellation
+        // Delegate to single question mode with converted params
         const result = await Promise.race([
-            provider.waitForUserResponse(params.question || '', params.choices, params.context),
-            cancellation.promise
+          provider.waitForUserResponse(
+            q.question || "",
+            convertedChoices,
+            params.context,
+          ),
+          cancellation.promise,
         ]);
 
-        // Handle case where request was superseded by another call
         if (result.cancelled) {
-            return {
-                response: result.value,
-                attachments: []
-            };
-        }
-
-        let responseText = result.value;
-        const validAttachments: string[] = [];
-
-        // Process attachments to resolve context content
-        if (result.attachments && result.attachments.length > 0) {
-            // When user submits only attachments without typing text, add a descriptive header
-            // so the AI model doesn't think the response is empty
-            if (!responseText.trim()) {
-                responseText = '(User attached the following files/context without additional text)';
-            }
-            for (const att of result.attachments) {
-                if (att.uri.startsWith('context://')) {
-                    // Start of context content
-                    responseText += `\n\n[Attached Context: ${att.name}]\n`;
-
-                    const content = await provider.resolveContextContent(att.uri);
-                    if (content) {
-                        responseText += content;
-                    } else {
-                        responseText += '(Context content not available)';
-                    }
-
-                    // End of context content
-                    responseText += '\n[End of Context]\n';
-                } else {
-                    // Regular file attachment - check if image or text
-                    try {
-                        const fileUri = vscode.Uri.parse(att.uri);
-                        const filePath = fileUri.fsPath;
-                        const mimeType = getImageMimeType(filePath);
-
-                        if (mimeType !== 'application/octet-stream') {
-                            // Image file → pass through for LanguageModelDataPart
-                            validAttachments.push(att.uri);
-                        } else {
-                            // Non-image file → read content and include as text
-                            const stats = await fs.promises.stat(filePath);
-                            if (stats.size > 500 * 1024) {
-                                responseText += `\n\n[Attached File: ${att.name}] (File too large: ${(stats.size / 1024).toFixed(1)}KB, max 500KB for text inclusion)\n`;
-                            } else {
-                                const fileContent = await fs.promises.readFile(filePath, 'utf-8');
-                                responseText += `\n\n[Attached File: ${att.name}]\n`;
-                                responseText += '```\n' + fileContent + '\n```';
-                                responseText += '\n[End of File]\n';
-                            }
-                        }
-                    } catch (err) {
-                        responseText += `\n\n[Attached File: ${att.name}] (Error: could not read file)\n`;
-                    }
-                }
-            }
+          return {
+            response: result.value,
+            attachments: [],
+          };
         }
 
         return {
-            response: responseText,
-            attachments: validAttachments
+          response: result.value,
+          attachments: [],
         };
-    } catch (error) {
-        // Handle cancellation: clean up pending state in provider before re-throwing
-        if (error instanceof vscode.CancellationError) {
-            provider.cancelPendingRequest();
-            throw error;
+      }
+
+      // Validate each question has required fields
+      for (let i = 0; i < params.questions.length; i++) {
+        const q = params.questions[i];
+        if (!q.header || !q.question) {
+          return {
+            response: JSON.stringify({
+              error: `VALIDATION ERROR: Question at index ${i} missing required fields. Each question needs 'header' and 'question'.`,
+              received: q,
+            }),
+            attachments: [],
+          };
         }
-        // Log other errors
-        console.error('[FlowCommand] askUser error:', error instanceof Error ? error.message : error);
-        // Show error to user so they know something went wrong
-        vscode.window.showErrorMessage(`FlowCommand: ${error instanceof Error ? error.message : 'Failed to show question'}`);
+      }
+
+      // Multi-question mode: show all questions in a form
+      const result = await Promise.race([
+        provider.waitForMultiQuestionResponse(params.questions),
+        cancellation.promise,
+      ]);
+
+      // Handle cancellation
+      if (result.cancelled) {
         return {
-            response: '',
-            attachments: []
+          response: result.value,
+          attachments: [],
         };
-    } finally {
-        // Always clean up the cancellation listener to prevent memory leaks
-        cancellation.dispose();
+      }
+
+      // Return the multi-question response (already JSON formatted by provider)
+      return {
+        response: result.value,
+        attachments: [],
+      };
     }
+
+    // Single question mode (original ask_user behavior)
+    // Race the user response against cancellation
+    const result = await Promise.race([
+      provider.waitForUserResponse(
+        params.question || "",
+        params.choices,
+        params.context,
+      ),
+      cancellation.promise,
+    ]);
+
+    // Handle case where request was superseded by another call
+    if (result.cancelled) {
+      return {
+        response: result.value,
+        attachments: [],
+      };
+    }
+
+    let responseText = result.value;
+    const validAttachments: string[] = [];
+
+    // Process attachments to resolve context content
+    if (result.attachments && result.attachments.length > 0) {
+      // When user submits only attachments without typing text, add a descriptive header
+      // so the AI model doesn't think the response is empty
+      if (!responseText.trim()) {
+        responseText =
+          "(User attached the following files/context without additional text)";
+      }
+      for (const att of result.attachments) {
+        if (att.uri.startsWith("context://")) {
+          // Start of context content
+          responseText += `\n\n[Attached Context: ${att.name}]\n`;
+
+          const content = await provider.resolveContextContent(att.uri);
+          if (content) {
+            responseText += content;
+          } else {
+            responseText += "(Context content not available)";
+          }
+
+          // End of context content
+          responseText += "\n[End of Context]\n";
+        } else {
+          // Regular file attachment - check if image or text
+          try {
+            const fileUri = vscode.Uri.parse(att.uri);
+            const filePath = fileUri.fsPath;
+            const mimeType = getImageMimeType(filePath);
+
+            if (mimeType !== "application/octet-stream") {
+              // Image file → pass through for LanguageModelDataPart
+              validAttachments.push(att.uri);
+            } else {
+              // Non-image file → read content and include as text
+              const stats = await fs.promises.stat(filePath);
+              if (stats.size > 500 * 1024) {
+                responseText += `\n\n[Attached File: ${att.name}] (File too large: ${(stats.size / 1024).toFixed(1)}KB, max 500KB for text inclusion)\n`;
+              } else {
+                const fileContent = await fs.promises.readFile(
+                  filePath,
+                  "utf-8",
+                );
+                responseText += `\n\n[Attached File: ${att.name}]\n`;
+                responseText += "```\n" + fileContent + "\n```";
+                responseText += "\n[End of File]\n";
+              }
+            }
+          } catch (err) {
+            responseText += `\n\n[Attached File: ${att.name}] (Error: could not read file)\n`;
+          }
+        }
+      }
+    }
+
+    return {
+      response: responseText,
+      attachments: validAttachments,
+    };
+  } catch (error) {
+    // Handle cancellation: clean up pending state in provider before re-throwing
+    if (error instanceof vscode.CancellationError) {
+      provider.cancelPendingRequest();
+      throw error;
+    }
+    // Log other errors
+    console.error(
+      "[FlowCommand] askUser error:",
+      error instanceof Error ? error.message : error,
+    );
+    // Show error to user so they know something went wrong
+    vscode.window.showErrorMessage(
+      `FlowCommand: ${error instanceof Error ? error.message : "Failed to show question"}`,
+    );
+    return {
+      response: "",
+      attachments: [],
+    };
+  } finally {
+    // Always clean up the cancellation listener to prevent memory leaks
+    cancellation.dispose();
+  }
 }
 
-export function registerTools(context: vscode.ExtensionContext, provider: FlowCommandWebviewProvider) {
+export function registerTools(
+  context: vscode.ExtensionContext,
+  provider: FlowCommandWebviewProvider,
+) {
+  // Register ask_user tool (VS Code native LM tool)
+  const askUserTool = vscode.lm.registerTool("ask_user", {
+    async invoke(
+      options: vscode.LanguageModelToolInvocationOptions<Input>,
+      token: vscode.CancellationToken,
+    ) {
+      const params = options.input;
 
-    // Register ask_user tool (VS Code native LM tool)
-    const askUserTool = vscode.lm.registerTool('ask_user', {
-        async invoke(options: vscode.LanguageModelToolInvocationOptions<Input>, token: vscode.CancellationToken) {
-            const params = options.input;
+      try {
+        const result = await askUser(params, provider, token);
 
+        // Build result parts - text first, then images
+        const resultParts: (
+          | vscode.LanguageModelTextPart
+          | vscode.LanguageModelDataPart
+        )[] = [
+          new vscode.LanguageModelTextPart(
+            JSON.stringify({
+              response: result.response,
+              queued: provider.isQueueEnabled(),
+              attachmentCount: result.attachments.length,
+            }),
+          ),
+        ];
+
+        // Add image attachments as LanguageModelDataPart for vision models
+        if (result.attachments && result.attachments.length > 0) {
+          const imagePromises = result.attachments.map(async (uri) => {
             try {
-                const result = await askUser(params, provider, token);
+              const fileUri = vscode.Uri.parse(uri);
+              const filePath = fileUri.fsPath;
 
-                // Build result parts - text first, then images
-                const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [
-                    new vscode.LanguageModelTextPart(JSON.stringify({
-                        response: result.response,
-                        queued: provider.isQueueEnabled(),
-                        attachmentCount: result.attachments.length
-                    }))
-                ];
+              // Check if file exists
+              if (!fs.existsSync(filePath)) {
+                console.error(
+                  "[FlowCommand] Attachment file does not exist:",
+                  filePath,
+                );
+                return null;
+              }
 
-                // Add image attachments as LanguageModelDataPart for vision models
-                if (result.attachments && result.attachments.length > 0) {
-                    const imagePromises = result.attachments.map(async (uri) => {
-                        try {
-                            const fileUri = vscode.Uri.parse(uri);
-                            const filePath = fileUri.fsPath;
+              const mimeType = getImageMimeType(filePath);
 
-                            // Check if file exists
-                            if (!fs.existsSync(filePath)) {
-                                console.error('[FlowCommand] Attachment file does not exist:', filePath);
-                                return null;
-                            }
-
-                            const mimeType = getImageMimeType(filePath);
-
-                            // Only process image files (skip non-image attachments)
-                            if (mimeType !== 'application/octet-stream') {
-                                const data = await readFileAsBuffer(filePath);
-                                const dataPart = vscode.LanguageModelDataPart.image(data, mimeType);
-                                return dataPart;
-                            }
-                            return null;
-                        } catch (error) {
-                            console.error('[FlowCommand] Failed to read image attachment:', error);
-                            return null;
-                        }
-                    });
-
-                    const imageParts = await Promise.all(imagePromises);
-                    for (const part of imageParts) {
-                        if (part !== null) {
-                            resultParts.push(part);
-                        }
-                    }
-                }
-
-                return new vscode.LanguageModelToolResult(resultParts);
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : 'Unknown error';
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart("Error: " + message)
-                ]);
+              // Only process image files (skip non-image attachments)
+              if (mimeType !== "application/octet-stream") {
+                const data = await readFileAsBuffer(filePath);
+                const dataPart = vscode.LanguageModelDataPart.image(
+                  data,
+                  mimeType,
+                );
+                return dataPart;
+              }
+              return null;
+            } catch (error) {
+              console.error(
+                "[FlowCommand] Failed to read image attachment:",
+                error,
+              );
+              return null;
             }
-        }
-    });
+          });
 
-    context.subscriptions.push(askUserTool);
+          const imageParts = await Promise.all(imagePromises);
+          for (const part of imageParts) {
+            if (part !== null) {
+              resultParts.push(part);
+            }
+          }
+        }
+
+        return new vscode.LanguageModelToolResult(resultParts);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        return new vscode.LanguageModelToolResult([
+          new vscode.LanguageModelTextPart("Error: " + message),
+        ]);
+      }
+    },
+  });
+
+  context.subscriptions.push(askUserTool);
 }

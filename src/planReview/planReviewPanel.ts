@@ -1,10 +1,10 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 import {
-    PlanReviewOptions,
-    PlanReviewPanelResult,
-    PlanReviewFromWebviewMessage,
-    RequiredPlanRevision
-} from './types';
+  PlanReviewOptions,
+  PlanReviewPanelResult,
+  PlanReviewFromWebviewMessage,
+  RequiredPlanRevision,
+} from "./types";
 
 /**
  * Webview Panel for reviewing and approving AI plans.
@@ -12,263 +12,261 @@ import {
  * Users can approve, approve with comments, or request changes.
  */
 export class PlanReviewPanel {
-    public static readonly viewType = 'flowcommandPlanReview';
+  public static readonly viewType = "flowcommandPlanReview";
 
-    /** Track open panels by interaction ID */
-    private static panels: Map<string, PlanReviewPanel> = new Map();
+  /** Track open panels by interaction ID */
+  private static panels: Map<string, PlanReviewPanel> = new Map();
 
-    private _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
-    private _resolveResult: ((result: PlanReviewPanelResult) => void) | null = null;
-    private _comments: RequiredPlanRevision[] = [];
-    private _planContent: string;
-    private _planTitle: string;
-    private _interactionId: string;
-    private _extensionUri: vscode.Uri;
+  private _panel: vscode.WebviewPanel;
+  private _disposables: vscode.Disposable[] = [];
+  private _resolveResult: ((result: PlanReviewPanelResult) => void) | null =
+    null;
+  private _comments: RequiredPlanRevision[] = [];
+  private _planContent: string;
+  private _planTitle: string;
+  private _interactionId: string;
+  private _extensionUri: vscode.Uri;
 
-    private constructor(
-        extensionUri: vscode.Uri,
-        options: PlanReviewOptions
-    ) {
-        this._extensionUri = extensionUri;
-        this._planContent = options.plan;
-        this._planTitle = options.title;
-        this._interactionId = options.interactionId;
-        this._comments = options.existingComments || [];
+  private constructor(extensionUri: vscode.Uri, options: PlanReviewOptions) {
+    this._extensionUri = extensionUri;
+    this._planContent = options.plan;
+    this._planTitle = options.title;
+    this._interactionId = options.interactionId;
+    this._comments = options.existingComments || [];
 
-        const panelTitle = `Review: ${options.title}`;
+    const panelTitle = `Review: ${options.title}`;
 
-        this._panel = vscode.window.createWebviewPanel(
-            PlanReviewPanel.viewType,
-            panelTitle,
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [
-                    vscode.Uri.joinPath(extensionUri, 'media')
-                ]
-            }
-        );
+    this._panel = vscode.window.createWebviewPanel(
+      PlanReviewPanel.viewType,
+      panelTitle,
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
+      },
+    );
 
-        // Set HTML content
-        this._panel.webview.html = this._getHtmlContent();
+    // Set HTML content
+    this._panel.webview.html = this._getHtmlContent();
 
-        // Handle messages from the webview
-        this._panel.webview.onDidReceiveMessage(
-            (message: PlanReviewFromWebviewMessage) => this._handleMessage(message),
-            null,
-            this._disposables
-        );
+    // Handle messages from the webview
+    this._panel.webview.onDidReceiveMessage(
+      (message: PlanReviewFromWebviewMessage) => this._handleMessage(message),
+      null,
+      this._disposables,
+    );
 
-        // Handle panel disposal
-        this._panel.onDidDispose(
-            () => this._onDispose(),
-            null,
-            this._disposables
-        );
+    // Handle panel disposal
+    this._panel.onDidDispose(() => this._onDispose(), null, this._disposables);
 
-        // Track this panel
-        PlanReviewPanel.panels.set(options.interactionId, this);
+    // Track this panel
+    PlanReviewPanel.panels.set(options.interactionId, this);
 
-        // Explicitly reveal and focus the panel (ensures autofocus)
-        this._panel.reveal(vscode.ViewColumn.One, false);
+    // Explicitly reveal and focus the panel (ensures autofocus)
+    this._panel.reveal(vscode.ViewColumn.One, false);
+  }
+
+  /**
+   * Show a plan review panel and wait for user action.
+   * Returns a promise that resolves when the user approves, rejects, or closes.
+   */
+  public static async showWithOptions(
+    extensionUri: vscode.Uri,
+    options: PlanReviewOptions,
+  ): Promise<PlanReviewPanelResult> {
+    // Close existing panel for same interaction if any
+    const existing = PlanReviewPanel.panels.get(options.interactionId);
+    if (existing) {
+      existing.dispose();
     }
 
-    /**
-     * Show a plan review panel and wait for user action.
-     * Returns a promise that resolves when the user approves, rejects, or closes.
-     */
-    public static async showWithOptions(
-        extensionUri: vscode.Uri,
-        options: PlanReviewOptions
-    ): Promise<PlanReviewPanelResult> {
-        // Close existing panel for same interaction if any
-        const existing = PlanReviewPanel.panels.get(options.interactionId);
-        if (existing) {
-            existing.dispose();
-        }
+    const panel = new PlanReviewPanel(extensionUri, options);
 
-        const panel = new PlanReviewPanel(extensionUri, options);
+    return new Promise<PlanReviewPanelResult>((resolve) => {
+      panel._resolveResult = resolve;
+    });
+  }
 
-        return new Promise<PlanReviewPanelResult>((resolve) => {
-            panel._resolveResult = resolve;
+  /**
+   * Close panel if it's open for a given interaction ID
+   */
+  public static closeIfOpen(interactionId: string): void {
+    const panel = PlanReviewPanel.panels.get(interactionId);
+    if (panel) {
+      panel.dispose();
+    }
+  }
+
+  /**
+   * Resolve a plan review from an external source (e.g., remote server).
+   * Closes the local panel and resolves the promise with the given result.
+   */
+  public static resolveExternally(
+    interactionId: string,
+    result: PlanReviewPanelResult,
+  ): boolean {
+    const panel = PlanReviewPanel.panels.get(interactionId);
+    if (panel && panel._resolveResult) {
+      panel._resolveAndClose(result);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Handle messages from the webview
+   */
+  private _handleMessage(message: PlanReviewFromWebviewMessage): void {
+    switch (message.type) {
+      case "ready":
+        // Send the plan content to the webview
+        this._panel.webview.postMessage({
+          type: "showPlan",
+          content: this._planContent,
+          title: this._planTitle,
+          readOnly: false,
+          comments: this._comments,
         });
-    }
+        break;
 
-    /**
-     * Close panel if it's open for a given interaction ID
-     */
-    public static closeIfOpen(interactionId: string): void {
-        const panel = PlanReviewPanel.panels.get(interactionId);
-        if (panel) {
-            panel.dispose();
-        }
-    }
-
-    /**
-     * Resolve a plan review from an external source (e.g., remote server).
-     * Closes the local panel and resolves the promise with the given result.
-     */
-    public static resolveExternally(interactionId: string, result: PlanReviewPanelResult): boolean {
-        const panel = PlanReviewPanel.panels.get(interactionId);
-        if (panel && panel._resolveResult) {
-            panel._resolveAndClose(result);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Handle messages from the webview
-     */
-    private _handleMessage(message: PlanReviewFromWebviewMessage): void {
-        switch (message.type) {
-            case 'ready':
-                // Send the plan content to the webview
-                this._panel.webview.postMessage({
-                    type: 'showPlan',
-                    content: this._planContent,
-                    title: this._planTitle,
-                    readOnly: false,
-                    comments: this._comments
-                });
-                break;
-
-            case 'approve':
-                this._comments = message.comments || [];
-                this._resolveAndClose({
-                    action: 'approved',
-                    requiredRevisions: []
-                });
-                break;
-
-            case 'approveWithComments':
-                this._comments = message.comments || [];
-                this._resolveAndClose({
-                    action: 'approvedWithComments',
-                    requiredRevisions: this._comments
-                });
-                break;
-
-            case 'reject':
-                this._comments = message.comments || [];
-                this._resolveAndClose({
-                    action: 'recreateWithChanges',
-                    requiredRevisions: this._comments
-                });
-                break;
-
-            case 'close':
-                this._comments = message.comments || [];
-                this._resolveAndClose({
-                    action: 'closed',
-                    requiredRevisions: this._comments
-                });
-                break;
-
-            case 'exportPlan':
-                this._exportPlan();
-                break;
-        }
-    }
-
-    /**
-     * Export plan to a markdown file
-     */
-    private async _exportPlan(): Promise<void> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) {
-            vscode.window.showErrorMessage('No workspace folder open');
-            return;
-        }
-
-        let content = `# ${this._planTitle}\n\n`;
-        content += `**Date:** ${new Date().toLocaleString()}\n\n`;
-        content += `---\n\n`;
-        content += this._planContent;
-
-        if (this._comments.length > 0) {
-            content += `\n\n---\n\n## Comments\n\n`;
-            for (const comment of this._comments) {
-                content += `### On: "${comment.revisedPart}"\n`;
-                content += `${comment.revisorInstructions}\n\n`;
-            }
-        }
-
-        const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.joinPath(workspaceFolders[0].uri, `${this._planTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`),
-            filters: { 'Markdown': ['md'] }
+      case "approve":
+        this._comments = message.comments || [];
+        this._resolveAndClose({
+          action: "approved",
+          requiredRevisions: [],
         });
+        break;
 
-        if (uri) {
-            await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf-8'));
-            vscode.window.showInformationMessage('Plan exported successfully');
-        }
+      case "approveWithComments":
+        this._comments = message.comments || [];
+        this._resolveAndClose({
+          action: "approvedWithComments",
+          requiredRevisions: this._comments,
+        });
+        break;
+
+      case "reject":
+        this._comments = message.comments || [];
+        this._resolveAndClose({
+          action: "recreateWithChanges",
+          requiredRevisions: this._comments,
+        });
+        break;
+
+      case "close":
+        this._comments = message.comments || [];
+        this._resolveAndClose({
+          action: "closed",
+          requiredRevisions: this._comments,
+        });
+        break;
+
+      case "exportPlan":
+        this._exportPlan();
+        break;
+    }
+  }
+
+  /**
+   * Export plan to a markdown file
+   */
+  private async _exportPlan(): Promise<void> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      vscode.window.showErrorMessage("No workspace folder open");
+      return;
     }
 
-    /**
-     * Resolve the result promise and close the panel
-     */
-    private _resolveAndClose(result: PlanReviewPanelResult): void {
-        if (this._resolveResult) {
-            this._resolveResult(result);
-            this._resolveResult = null;
-        }
-        this.dispose();
+    let content = `# ${this._planTitle}\n\n`;
+    content += `**Date:** ${new Date().toLocaleString()}\n\n`;
+    content += `---\n\n`;
+    content += this._planContent;
+
+    if (this._comments.length > 0) {
+      content += `\n\n---\n\n## Comments\n\n`;
+      for (const comment of this._comments) {
+        content += `### On: "${comment.revisedPart}"\n`;
+        content += `${comment.revisorInstructions}\n\n`;
+      }
     }
 
-    /**
-     * Handle panel disposal
-     */
-    private _onDispose(): void {
-        // If no result was provided (user closed the panel), resolve with 'closed'
-        if (this._resolveResult) {
-            this._resolveResult({
-                action: 'closed',
-                requiredRevisions: this._comments
-            });
-            this._resolveResult = null;
-        }
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(
+        workspaceFolders[0].uri,
+        `${this._planTitle.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.md`,
+      ),
+      filters: { Markdown: ["md"] },
+    });
 
-        // Remove from tracked panels
-        PlanReviewPanel.panels.delete(this._interactionId);
+    if (uri) {
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf-8"));
+      vscode.window.showInformationMessage("Plan exported successfully");
+    }
+  }
 
-        // Dispose all disposables
-        while (this._disposables.length) {
-            const disposable = this._disposables.pop();
-            if (disposable) {
-                disposable.dispose();
-            }
-        }
+  /**
+   * Resolve the result promise and close the panel
+   */
+  private _resolveAndClose(result: PlanReviewPanelResult): void {
+    if (this._resolveResult) {
+      this._resolveResult(result);
+      this._resolveResult = null;
+    }
+    this.dispose();
+  }
+
+  /**
+   * Handle panel disposal
+   */
+  private _onDispose(): void {
+    // If no result was provided (user closed the panel), resolve with 'closed'
+    if (this._resolveResult) {
+      this._resolveResult({
+        action: "closed",
+        requiredRevisions: this._comments,
+      });
+      this._resolveResult = null;
     }
 
-    /**
-     * Dispose the panel
-     */
-    public dispose(): void {
-        this._panel.dispose();
+    // Remove from tracked panels
+    PlanReviewPanel.panels.delete(this._interactionId);
+
+    // Dispose all disposables
+    while (this._disposables.length) {
+      const disposable = this._disposables.pop();
+      if (disposable) {
+        disposable.dispose();
+      }
     }
+  }
 
-    /**
-     * Generate the HTML content for the webview
-     */
-    private _getHtmlContent(): string {
-        const webview = this._panel.webview;
-        const mediaUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media')
-        );
-        const codiconUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css')
-        );
-        const nonce = getNonce();
+  /**
+   * Dispose the panel
+   */
+  public dispose(): void {
+    this._panel.dispose();
+  }
 
-        const primaryLabel = 'Approve';
-        const primaryAction = 'approve';
-        const secondaryLabel = 'Request Changes';
-        const secondaryAction = 'reject';
+  /**
+   * Generate the HTML content for the webview
+   */
+  private _getHtmlContent(): string {
+    const webview = this._panel.webview;
+    const mediaUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, "media"),
+    );
+    const codiconUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, "media", "codicon.css"),
+    );
+    const nonce = getNonce();
 
-        return `<!DOCTYPE html>
+    const primaryLabel = "Approve";
+    const primaryAction = "approve";
+    const secondaryLabel = "Request Changes";
+    const secondaryAction = "reject";
+
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -670,6 +668,18 @@ export class PlanReviewPanel {
             font-size: 11px;
         }
 
+        .btn-cancel {
+            background: transparent;
+            color: var(--vscode-descriptionForeground, #888);
+            border: 1px solid var(--vscode-input-border, #444);
+        }
+
+        .btn-cancel:hover {
+            background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
+            color: var(--vscode-errorForeground, #f44);
+            border-color: var(--vscode-inputValidation-errorBorder, #f44);
+        }
+
         /* No comments message */
         .no-comments {
             font-size: 12px;
@@ -738,6 +748,7 @@ export class PlanReviewPanel {
             Review the plan above, then approve or request changes.
         </div>
         <div class="footer-actions">
+            <button class="btn btn-cancel" id="cancel-btn">Cancel</button>
             <button class="btn btn-secondary requires-comments" id="secondary-btn" data-action="${secondaryAction}" disabled>
                 ${secondaryLabel}
             </button>
@@ -772,6 +783,7 @@ export class PlanReviewPanel {
         const dialogSave = document.getElementById('dialog-save');
         const primaryBtn = document.getElementById('primary-btn');
         const secondaryBtn = document.getElementById('secondary-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
         const exportBtn = document.getElementById('export-btn');
         const readonlyBanner = document.getElementById('readonly-banner');
 
@@ -1049,6 +1061,10 @@ export class PlanReviewPanel {
             vscode.postMessage({ type: action, comments: comments });
         });
 
+        cancelBtn.addEventListener('click', function() {
+            vscode.postMessage({ type: 'close', comments: [] });
+        });
+
         exportBtn.addEventListener('click', function() {
             vscode.postMessage({ type: 'exportPlan' });
         });
@@ -1063,6 +1079,7 @@ export class PlanReviewPanel {
                     readonlyBanner.classList.add('visible');
                     primaryBtn.style.display = 'none';
                     secondaryBtn.style.display = 'none';
+                    cancelBtn.style.display = 'none';
                 }
 
                 // Render the plan content with comment icons
@@ -1110,22 +1127,23 @@ export class PlanReviewPanel {
     </script>
 </body>
 </html>`;
-    }
+  }
 }
 
 function getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+  let text = "";
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }
 
 function escapeHtml(str: string): string {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

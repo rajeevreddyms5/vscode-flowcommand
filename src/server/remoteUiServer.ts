@@ -1,35 +1,47 @@
-import * as vscode from 'vscode';
-import * as http from 'http';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
-import express from 'express';
-import { Server as SocketIOServer, Socket } from 'socket.io';
+import * as vscode from "vscode";
+import * as http from "http";
+import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
+import express from "express";
+import { Server as SocketIOServer, Socket } from "socket.io";
 
 // Session info for registry
 export interface SessionInfo {
-    id: string;
-    workspaceName: string;
-    port: number;
-    startTime: number;
-    pin: string;
+  id: string;
+  workspaceName: string;
+  port: number;
+  startTime: number;
+  pin: string;
 }
 
 // Message types (mirrored from webviewProvider)
 export type RemoteMessage = {
-    type: string;
-    [key: string]: unknown;
+  type: string;
+  [key: string]: unknown;
 };
 
 // State interface for initial sync
 export interface RemoteState {
-    queue: unknown[];
-    queueEnabled: boolean;
-    currentSession: unknown[];
-    persistedHistory: unknown[];
-    pendingRequest: { id: string; prompt: string; context?: string; isApprovalQuestion: boolean; choices?: unknown[] } | null;
-    pendingMultiQuestion: { requestId: string; questions: unknown[] } | null;
-    settings: { soundEnabled: boolean; interactiveApprovalEnabled: boolean; reusablePrompts: unknown[]; mcpRunning?: boolean; mcpUrl?: string | null };
+  queue: unknown[];
+  queueEnabled: boolean;
+  currentSession: unknown[];
+  persistedHistory: unknown[];
+  pendingRequest: {
+    id: string;
+    prompt: string;
+    context?: string;
+    isApprovalQuestion: boolean;
+    choices?: unknown[];
+  } | null;
+  pendingMultiQuestion: { requestId: string; questions: unknown[] } | null;
+  settings: {
+    soundEnabled: boolean;
+    interactiveApprovalEnabled: boolean;
+    reusablePrompts: unknown[];
+    mcpRunning?: boolean;
+    mcpUrl?: string | null;
+  };
 }
 
 /**
@@ -37,932 +49,1060 @@ export interface RemoteState {
  * Provides identical functionality to the VS Code webview
  */
 export class RemoteUiServer implements vscode.Disposable {
-    private _app: express.Application;
-    private _server: http.Server | null = null;
-    private _io: SocketIOServer | null = null;
-    private _port: number = 0;
-    private _pin: string;
-    private _sessionId: string;
-    private _authenticatedSockets: Set<string> = new Set();
+  private _app: express.Application;
+  private _server: http.Server | null = null;
+  private _io: SocketIOServer | null = null;
+  private _port: number = 0;
+  private _pin: string;
+  private _sessionId: string;
+  private _authenticatedSockets: Set<string> = new Set();
 
-    // Callback to relay messages to/from webview provider
-    private _onMessageCallback: ((message: RemoteMessage, respond: (msg: RemoteMessage) => void) => void) | null = null;
+  // Callback to relay messages to/from webview provider
+  private _onMessageCallback:
+    | ((message: RemoteMessage, respond: (msg: RemoteMessage) => void) => void)
+    | null = null;
 
-    // Callback to get current state for new connections
-    private _getStateCallback: (() => RemoteState) | null = null;
+  // Callback to get current state for new connections
+  private _getStateCallback: (() => RemoteState) | null = null;
 
-    // Callback to get terminal command history
-    private _getTerminalHistoryCallback: (() => unknown[]) | null = null;
+  // Callback to get terminal command history
+  private _getTerminalHistoryCallback: (() => unknown[]) | null = null;
 
-    // Callback to get problems/diagnostics
-    private _getProblemsCallback: (() => unknown[]) | null = null;
+  // Callback to get problems/diagnostics
+  private _getProblemsCallback: (() => unknown[]) | null = null;
 
-    // Debug console output buffer (keeps last 500 entries)
-    private _debugOutput: { type: string; message: string; timestamp: number }[] = [];
-    private _debugTrackerDisposable: vscode.Disposable | null = null;
+  // Debug console output buffer (keeps last 500 entries)
+  private _debugOutput: { type: string; message: string; timestamp: number }[] =
+    [];
+  private _debugTrackerDisposable: vscode.Disposable | null = null;
 
-    // File and terminal watchers for real-time updates
-    private _fileWatchers: vscode.Disposable[] = [];
-    private _terminalWatchers: vscode.Disposable[] = [];
+  // File and terminal watchers for real-time updates
+  private _fileWatchers: vscode.Disposable[] = [];
+  private _terminalWatchers: vscode.Disposable[] = [];
 
-    // File change debounce to reduce broadcast load for remote clients
-    private _fileChangeDebounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-    private _pendingFileChanges: Map<string, RemoteMessage> = new Map();
-    private readonly _FILE_CHANGE_DEBOUNCE_MS = 250;
-    private readonly _MAX_FILE_CHANGE_BYTES = 200 * 1024; // 200KB
+  // File change debounce to reduce broadcast load for remote clients
+  private _fileChangeDebounceTimers: Map<
+    string,
+    ReturnType<typeof setTimeout>
+  > = new Map();
+  private _pendingFileChanges: Map<string, RemoteMessage> = new Map();
+  private readonly _FILE_CHANGE_DEBOUNCE_MS = 250;
+  private readonly _MAX_FILE_CHANGE_BYTES = 200 * 1024; // 200KB
 
-    constructor(
-        private readonly _extensionUri: vscode.Uri,
-        private readonly _context: vscode.ExtensionContext
-    ) {
-        this._app = express();
-        this._pin = this._getOrCreatePersistentPin();
-        this._sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        this._setupRoutes();
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _context: vscode.ExtensionContext,
+  ) {
+    this._app = express();
+    this._pin = this._getOrCreatePersistentPin();
+    this._sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    this._setupRoutes();
+  }
+
+  /**
+   * Get or create a persistent PIN for this machine
+   * The same PIN is used across VS Code restarts
+   */
+  private _getOrCreatePersistentPin(): string {
+    const storedPin = this._context.globalState.get<string>(
+      "flowcommand_remote_pin",
+    );
+    if (storedPin) {
+      console.log("[FlowCommand Remote] Using stored PIN");
+      return storedPin;
     }
 
-    /**
-     * Get or create a persistent PIN for this machine
-     * The same PIN is used across VS Code restarts
-     */
-    private _getOrCreatePersistentPin(): string {
-        const storedPin = this._context.globalState.get<string>('flowcommand_remote_pin');
-        if (storedPin) {
-            console.log('[FlowCommand Remote] Using stored PIN');
-            return storedPin;
+    // Generate new PIN and store it
+    const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+    this._context.globalState.update("flowcommand_remote_pin", newPin);
+    console.log("[FlowCommand Remote] Generated new persistent PIN");
+    return newPin;
+  }
+
+  /**
+   * Generate a 4-digit PIN for authentication (legacy method)
+   */
+  private _generatePin(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  }
+
+  /**
+   * Get local network IP addresses (excludes VPN interfaces)
+   */
+  private _getLocalIPs(): string[] {
+    const interfaces = os.networkInterfaces();
+    const ips: string[] = [];
+
+    // VPN adapter name patterns to exclude
+    const vpnPatterns = [
+      /nordlynx/i,
+      /nordvpn/i,
+      /openvpn/i,
+      /wireguard/i,
+      /tunnel/i,
+      /vpn/i,
+      /tap-/i,
+      /tun\d/i,
+      /wg\d/i,
+      /proton/i,
+      /mullvad/i,
+      /express/i,
+      /cyberghost/i,
+    ];
+
+    // Preferred interface patterns (prioritize these)
+    const preferredPatterns = [
+      /wifi/i,
+      /wi-fi/i,
+      /wlan/i,
+      /ethernet/i,
+      /eth\d/i,
+    ];
+
+    const preferredIps: string[] = [];
+    const otherIps: string[] = [];
+
+    for (const name of Object.keys(interfaces)) {
+      const netInterface = interfaces[name];
+      if (!netInterface) continue;
+
+      // Skip VPN interfaces
+      if (vpnPatterns.some((pattern) => pattern.test(name))) continue;
+
+      const isPreferred = preferredPatterns.some((pattern) =>
+        pattern.test(name),
+      );
+
+      for (const iface of netInterface) {
+        // Skip internal and non-IPv4 addresses
+        if (iface.internal || iface.family !== "IPv4") continue;
+        // Skip link-local addresses (169.254.x.x)
+        if (iface.address.startsWith("169.254.")) continue;
+        // Skip VPN-like address ranges (10.x.x.x often used by VPNs)
+        // But keep 10.0.0.x which is common for local networks
+        if (
+          iface.address.startsWith("10.") &&
+          !iface.address.startsWith("10.0.0.") &&
+          !iface.address.startsWith("10.0.1.")
+        ) {
+          // Likely a VPN, skip
+          continue;
         }
-        
-        // Generate new PIN and store it
-        const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-        this._context.globalState.update('flowcommand_remote_pin', newPin);
-        console.log('[FlowCommand Remote] Generated new persistent PIN');
-        return newPin;
-    }
 
-    /**
-     * Generate a 4-digit PIN for authentication (legacy method)
-     */
-    private _generatePin(): string {
-        return Math.floor(1000 + Math.random() * 9000).toString();
-    }
-
-    /**
-     * Get local network IP addresses (excludes VPN interfaces)
-     */
-    private _getLocalIPs(): string[] {
-        const interfaces = os.networkInterfaces();
-        const ips: string[] = [];
-        
-        // VPN adapter name patterns to exclude
-        const vpnPatterns = [
-            /nordlynx/i, /nordvpn/i, /openvpn/i, /wireguard/i,
-            /tunnel/i, /vpn/i, /tap-/i, /tun\d/i, /wg\d/i,
-            /proton/i, /mullvad/i, /express/i, /cyberghost/i
-        ];
-        
-        // Preferred interface patterns (prioritize these)
-        const preferredPatterns = [/wifi/i, /wi-fi/i, /wlan/i, /ethernet/i, /eth\d/i];
-        
-        const preferredIps: string[] = [];
-        const otherIps: string[] = [];
-        
-        for (const name of Object.keys(interfaces)) {
-            const netInterface = interfaces[name];
-            if (!netInterface) continue;
-            
-            // Skip VPN interfaces
-            if (vpnPatterns.some(pattern => pattern.test(name))) continue;
-            
-            const isPreferred = preferredPatterns.some(pattern => pattern.test(name));
-            
-            for (const iface of netInterface) {
-                // Skip internal and non-IPv4 addresses
-                if (iface.internal || iface.family !== 'IPv4') continue;
-                // Skip link-local addresses (169.254.x.x)
-                if (iface.address.startsWith('169.254.')) continue;
-                // Skip VPN-like address ranges (10.x.x.x often used by VPNs)
-                // But keep 10.0.0.x which is common for local networks
-                if (iface.address.startsWith('10.') && 
-                    !iface.address.startsWith('10.0.0.') &&
-                    !iface.address.startsWith('10.0.1.')) {
-                    // Likely a VPN, skip
-                    continue;
-                }
-                
-                if (isPreferred) {
-                    preferredIps.push(iface.address);
-                } else {
-                    otherIps.push(iface.address);
-                }
-            }
+        if (isPreferred) {
+          preferredIps.push(iface.address);
+        } else {
+          otherIps.push(iface.address);
         }
-        
-        // Return preferred IPs first, then others
-        return [...preferredIps, ...otherIps];
+      }
     }
 
-    /**
-     * Setup Express routes
-     */
-    private _setupRoutes(): void {
-        // Serve static media files
-        const mediaPath = path.join(this._extensionUri.fsPath, 'media');
-        this._app.use('/media', express.static(mediaPath));
+    // Return preferred IPs first, then others
+    return [...preferredIps, ...otherIps];
+  }
 
-        // Serve codicons (now bundled in media folder)
-        // Note: codicons are already served via /media static route
+  /**
+   * Setup Express routes
+   */
+  private _setupRoutes(): void {
+    // Serve static media files
+    const mediaPath = path.join(this._extensionUri.fsPath, "media");
+    this._app.use("/media", express.static(mediaPath));
 
-        // Serve PWA manifest
-        this._app.get('/manifest.json', (_req, res) => {
-            res.json(this._getManifest());
+    // Serve codicons (now bundled in media folder)
+    // Note: codicons are already served via /media static route
+
+    // Serve PWA manifest
+    this._app.get("/manifest.json", (_req, res) => {
+      res.json(this._getManifest());
+    });
+
+    // Serve service worker
+    this._app.get("/sw.js", (_req, res) => {
+      res.type("application/javascript");
+      res.send(this._getServiceWorker());
+    });
+
+    // API: Get session info (for dashboard)
+    this._app.get("/api/sessions", (_req, res) => {
+      const sessions = this._getAllSessions();
+      res.json(sessions);
+    });
+
+    // Landing page (PIN entry / session selector)
+    this._app.get("/", (req, res) => {
+      // If PIN is provided in URL, redirect to app
+      const pin = req.query.pin as string;
+      if (pin && pin === this._pin) {
+        res.redirect("/app?pin=" + pin);
+        return;
+      }
+      res.send(this._getLandingPageHtml());
+    });
+
+    // Main app (requires PIN authentication)
+    this._app.get("/app", (req, res) => {
+      const pin = req.query.pin as string;
+      if (pin !== this._pin) {
+        res.redirect("/?error=invalid_pin");
+        return;
+      }
+      res.send(this._getAppHtml());
+    });
+  }
+
+  /**
+   * Start the server
+   * @param preferredPort - Optional port to start on (defaults to config or 3000)
+   * @returns The port the server is running on
+   */
+  public async start(preferredPort?: number): Promise<number> {
+    // If already running, return current port
+    if (this._server !== null) {
+      console.log(
+        "[FlowCommand Remote] Server already running on port",
+        this._port,
+      );
+      return this._port;
+    }
+
+    const config = vscode.workspace.getConfiguration("flowcommand");
+    const configPort = config.get<number>("remotePort", 3000);
+    const startPort = preferredPort ?? configPort;
+
+    // Find available port
+    this._port = await this._findAvailablePort(startPort);
+
+    return new Promise((resolve, reject) => {
+      try {
+        this._server = this._app.listen(this._port, "0.0.0.0", () => {
+          try {
+            this._setupSocketIO();
+            this._setupFileWatchers();
+            this._setupTerminalWatchers();
+            this._setupDebugTracker();
+            this._registerSession();
+
+            const info = this.getConnectionInfo();
+            console.log(
+              `[FlowCommand Remote] Server started on port ${this._port}`,
+            );
+            console.log(`[FlowCommand Remote] PIN: ${this._pin}`);
+            console.log(`[FlowCommand Remote] URLs: ${info.urls.join(", ")}`);
+
+            resolve(this._port);
+          } catch (setupErr) {
+            console.error("[FlowCommand Remote] Setup error:", setupErr);
+            // Clean up on setup failure
+            this.stop();
+            reject(setupErr);
+          }
         });
 
-        // Serve service worker
-        this._app.get('/sw.js', (_req, res) => {
-            res.type('application/javascript');
-            res.send(this._getServiceWorker());
+        this._server.on("error", (err) => {
+          console.error("[FlowCommand Remote] Server error:", err);
+          this._server = null;
+          reject(err);
         });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
 
-        // API: Get session info (for dashboard)
-        this._app.get('/api/sessions', (_req, res) => {
-            const sessions = this._getAllSessions();
-            res.json(sessions);
-        });
+  /**
+   * Find an available port starting from the given port
+   */
+  private async _findAvailablePort(startPort: number): Promise<number> {
+    const maxAttempts = 100;
 
-        // Landing page (PIN entry / session selector)
-        this._app.get('/', (req, res) => {
-            // If PIN is provided in URL, redirect to app
-            const pin = req.query.pin as string;
-            if (pin && pin === this._pin) {
-                res.redirect('/app?pin=' + pin);
-                return;
-            }
-            res.send(this._getLandingPageHtml());
-        });
-
-        // Main app (requires PIN authentication)
-        this._app.get('/app', (req, res) => {
-            const pin = req.query.pin as string;
-            if (pin !== this._pin) {
-                res.redirect('/?error=invalid_pin');
-                return;
-            }
-            res.send(this._getAppHtml());
-        });
+    for (let i = 0; i < maxAttempts; i++) {
+      const port = startPort + i;
+      const isAvailable = await this._isPortAvailable(port);
+      if (isAvailable) {
+        return port;
+      }
     }
 
-    /**
-     * Start the server
-     * @param preferredPort - Optional port to start on (defaults to config or 3000)
-     * @returns The port the server is running on
-     */
-    public async start(preferredPort?: number): Promise<number> {
-        // If already running, return current port
-        if (this._server !== null) {
-            console.log('[FlowCommand Remote] Server already running on port', this._port);
-            return this._port;
+    throw new Error(
+      `Could not find available port after ${maxAttempts} attempts starting from ${startPort}`,
+    );
+  }
+
+  /**
+   * Check if a port is available (non-blocking with timeout)
+   */
+  private _isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const testServer = http.createServer();
+      let resolved = false;
+
+      // Timeout after 5 seconds to prevent hanging
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            testServer.close(() => {});
+          } catch (e) {
+            // Server may already be closing/closed
+          }
+          resolve(false); // Assume unavailable on timeout
         }
+      }, 5000);
 
-        const config = vscode.workspace.getConfiguration('flowcommand');
-        const configPort = config.get<number>('remotePort', 3000);
-        const startPort = preferredPort ?? configPort;
+      testServer.once("error", () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(false);
+        }
+      });
 
-        // Find available port
-        this._port = await this._findAvailablePort(startPort);
+      testServer.once("listening", () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          testServer.close(() => {
+            resolve(true);
+          });
+        }
+      });
 
-        return new Promise((resolve, reject) => {
-            try {
-                this._server = this._app.listen(this._port, '0.0.0.0', () => {
-                    try {
-                        this._setupSocketIO();
-                        this._setupFileWatchers();
-                        this._setupTerminalWatchers();
-                        this._setupDebugTracker();
-                        this._registerSession();
-                        
-                        const info = this.getConnectionInfo();
-                        console.log(`[FlowCommand Remote] Server started on port ${this._port}`);
-                        console.log(`[FlowCommand Remote] PIN: ${this._pin}`);
-                        console.log(`[FlowCommand Remote] URLs: ${info.urls.join(', ')}`);
-                        
-                        resolve(this._port);
-                    } catch (setupErr) {
-                        console.error('[FlowCommand Remote] Setup error:', setupErr);
-                        // Clean up on setup failure
-                        this.stop();
-                        reject(setupErr);
-                    }
-                });
+      testServer.listen(port, "0.0.0.0");
+    });
+  }
 
-                this._server.on('error', (err) => {
-                    console.error('[FlowCommand Remote] Server error:', err);
-                    this._server = null;
-                    reject(err);
-                });
-            } catch (err) {
-                reject(err);
-            }
-        });
+  /**
+   * Setup debug adapter tracker for capturing debug console output
+   */
+  private _setupDebugTracker(): void {
+    // Avoid duplicate registration
+    if (this._debugTrackerDisposable) {
+      return;
     }
 
-    /**
-     * Find an available port starting from the given port
-     */
-    private async _findAvailablePort(startPort: number): Promise<number> {
-        const maxAttempts = 100;
-        
-        for (let i = 0; i < maxAttempts; i++) {
-            const port = startPort + i;
-            const isAvailable = await this._isPortAvailable(port);
-            if (isAvailable) {
-                return port;
-            }
-        }
-        
-        throw new Error(`Could not find available port after ${maxAttempts} attempts starting from ${startPort}`);
-    }
-
-    /**
-     * Check if a port is available (non-blocking with timeout)
-     */
-    private _isPortAvailable(port: number): Promise<boolean> {
-        return new Promise((resolve) => {
-            const testServer = http.createServer();
-            let resolved = false;
-            
-            // Timeout after 5 seconds to prevent hanging
-            const timeout = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    try {
-                        testServer.close(() => {});
-                    } catch (e) {
-                        // Server may already be closing/closed
-                    }
-                    resolve(false); // Assume unavailable on timeout
-                }
-            }, 5000);
-
-            testServer.once('error', () => {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timeout);
-                    resolve(false);
-                }
-            });
-            
-            testServer.once('listening', () => {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timeout);
-                    testServer.close(() => {
-                        resolve(true);
-                    });
-                }
-            });
-            
-            testServer.listen(port, '0.0.0.0');
-        });
-    }
-
-    /**
-     * Setup debug adapter tracker for capturing debug console output
-     */
-    private _setupDebugTracker(): void {
-        // Avoid duplicate registration
-        if (this._debugTrackerDisposable) {
-            return;
-        }
-        
-        try {
-            // Register debug adapter tracker factory for all debug types
-            this._debugTrackerDisposable = vscode.debug.registerDebugAdapterTrackerFactory('*', {
-                createDebugAdapterTracker: (session) => {
-                    return {
-                        onWillReceiveMessage: (message: { type?: string; event?: string; body?: { category?: string; output?: string } }) => {
-                            try {
-                                // Capture output events
-                                if (message.type === 'event' && message.event === 'output') {
-                                    const body = message.body;
-                                    if (body?.output) {
-                                        const entry = {
-                                            type: body.category || 'console',
-                                            message: body.output.replace(/\r?\n$/, ''),  // Trim trailing newline
-                                            timestamp: Date.now(),
-                                            session: session.name
-                                        };
-                                        
-                                        // Add to buffer (keep last 500)
-                                        this._debugOutput.push(entry);
-                                        if (this._debugOutput.length > 500) {
-                                            this._debugOutput.shift();
-                                        }
-                                        
-                                        // Broadcast to all connected clients (only if we have connections)
-                                        if (this._authenticatedSockets.size > 0) {
-                                            this.broadcast({
-                                                type: 'debugOutput',
-                                                entry
-                                            });
-                                        }
-                                    }
-                                }
-                            } catch (err) {
-                                // Don't let debug tracking errors crash the extension
-                                console.error('[FlowCommand Remote] Debug tracker error:', err);
-                            }
-                        }
-                    };
-                }
-            });
-        } catch (err) {
-            console.error('[FlowCommand Remote] Failed to setup debug tracker:', err);
-        }
-    }
-
-    /**
-     * Setup file system watchers for real-time updates
-     */
-    private _setupFileWatchers(): void {
-        // Avoid duplicate registration
-        if (this._fileWatchers.length > 0) {
-            return;
-        }
-        
-        try {
-            // Watch for file changes
-            const changeWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
-                try {
-                    if (this._authenticatedSockets.size === 0) return;
-                    
-                    const workspaceFolders = vscode.workspace.workspaceFolders;
-                    if (!workspaceFolders?.length) return;
-                    
-                    const relativePath = vscode.workspace.asRelativePath(e.document.uri);
-                    // Skip if outside workspace or is settings file
-                    if (relativePath.startsWith('..') || relativePath.includes('.vscode')) return;
-
-                    const content = e.document.getText();
-                    const contentBytes = Buffer.byteLength(content, 'utf8');
-                    const payload: RemoteMessage = {
-                        type: 'fileChanged',
-                        path: relativePath,
-                        content: contentBytes <= this._MAX_FILE_CHANGE_BYTES ? content : '',
-                        contentBytes,
-                        truncated: contentBytes > this._MAX_FILE_CHANGE_BYTES
-                    };
-
-                    this._queueFileChangeBroadcast(relativePath, payload);
-                } catch (err) {
-                    console.error('[FlowCommand Remote] File change watcher error:', err);
-                }
-            });
-
-        // Watch for file creation
-        const createWatcher = vscode.workspace.onDidCreateFiles((e) => {
-            try {
-                if (this._authenticatedSockets.size === 0) return;
-                
-                for (const file of e.files) {
-                    const relativePath = vscode.workspace.asRelativePath(file);
-                    if (!relativePath.startsWith('..')) {
-                        this.broadcast({
-                            type: 'fileCreated',
-                            path: relativePath
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('[FlowCommand Remote] File create watcher error:', err);
-            }
-        });
-
-        // Watch for file deletion
-        const deleteWatcher = vscode.workspace.onDidDeleteFiles((e) => {
-            try {
-                if (this._authenticatedSockets.size === 0) return;
-                
-                for (const file of e.files) {
-                    const relativePath = vscode.workspace.asRelativePath(file);
-                    if (!relativePath.startsWith('..')) {
-                        this.broadcast({
-                            type: 'fileDeleted',
-                            path: relativePath
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('[FlowCommand Remote] File delete watcher error:', err);
-            }
-        });
-
-        // Watch for file rename
-        const renameWatcher = vscode.workspace.onDidRenameFiles((e) => {
-            try {
-                if (this._authenticatedSockets.size === 0) return;
-                
-                for (const file of e.files) {
-                    const oldPath = vscode.workspace.asRelativePath(file.oldUri);
-                    const newPath = vscode.workspace.asRelativePath(file.newUri);
-                    if (!newPath.startsWith('..')) {
-                        this.broadcast({
-                            type: 'fileRenamed',
-                            oldPath,
-                            newPath
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('[FlowCommand Remote] File rename watcher error:', err);
-            }
-        });
-
-            this._fileWatchers.push(changeWatcher, createWatcher, deleteWatcher, renameWatcher);
-        } catch (err) {
-            console.error('[FlowCommand Remote] Failed to setup file watchers:', err);
-        }
-    }
-
-    /**
-     * Setup terminal watchers for real-time updates
-     */
-    private _setupTerminalWatchers(): void {
-        // Avoid duplicate registration
-        if (this._terminalWatchers.length > 0) {
-            return;
-        }
-        
-        try {
-            // Watch terminal open
-            const openWatcher = vscode.window.onDidOpenTerminal((terminal) => {
-                try {
-                    if (this._authenticatedSockets.size === 0) return;
-                    this.broadcast({
-                        type: 'terminalOpened',
-                        terminals: this._getTerminalList()
-                    });
-                } catch (err) {
-                    console.error('[FlowCommand Remote] Terminal open watcher error:', err);
-                }
-            });
-
-            // Watch terminal close
-            const closeWatcher = vscode.window.onDidCloseTerminal((terminal) => {
-                try {
-                    if (this._authenticatedSockets.size === 0) return;
-                    this.broadcast({
-                        type: 'terminalClosed',
-                        terminals: this._getTerminalList()
-                    });
-                } catch (err) {
-                    console.error('[FlowCommand Remote] Terminal close watcher error:', err);
-                }
-            });
-
-            // Watch terminal active change
-            const activeWatcher = vscode.window.onDidChangeActiveTerminal((terminal) => {
-                try {
-                    if (this._authenticatedSockets.size === 0) return;
-                    const index = terminal ? vscode.window.terminals.indexOf(terminal) : -1;
-                    this.broadcast({
-                        type: 'terminalActiveChanged',
-                        activeTerminalId: index
-                    });
-                } catch (err) {
-                    console.error('[FlowCommand Remote] Terminal active watcher error:', err);
-                }
-            });
-
-            this._terminalWatchers.push(openWatcher, closeWatcher, activeWatcher);
-        } catch (err) {
-            console.error('[FlowCommand Remote] Failed to setup terminal watchers:', err);
-        }
-    }
-
-    /**
-     * Setup Socket.IO for real-time communication
-     */
-    private _setupSocketIO(): void {
-        if (!this._server) return;
-
-        // Create Socket.IO server - socket.io is now external, so use default transports
-        this._io = new SocketIOServer(this._server, {
-            cors: {
-                origin: '*',
-                methods: ['GET', 'POST']
-            }
-        });
-
-        this._io.on('connection', (socket: Socket) => {
-            console.log('[FlowCommand Remote] Client connected:', socket.id);
-
-            // Handle authentication
-            socket.on('authenticate', (data: { pin: string }) => {
-                console.log('[FlowCommand Remote] Auth attempt with PIN:', data.pin, 'Expected:', this._pin);
-                if (data.pin === this._pin) {
-                    this._authenticatedSockets.add(socket.id);
-                    socket.emit('authenticated', { success: true });
-                    console.log('[FlowCommand Remote] Socket authenticated:', socket.id);
-                    
-                    // Send initial state
-                    if (this._getStateCallback) {
-                        const state = this._getStateCallback();
-                        console.log('[FlowCommand Remote] Sending initial state:', JSON.stringify(state).substring(0, 200));
-                        socket.emit('initialState', state);
-                    } else {
-                        console.log('[FlowCommand Remote] No getStateCallback registered!');
-                    }
-                } else {
-                    socket.emit('authenticated', { success: false, message: 'Invalid PIN' });
-                    console.log('[FlowCommand Remote] Auth failed for:', socket.id);
-                }
-            });
-
-            // Handle messages from authenticated clients
-            socket.on('message', (message: RemoteMessage) => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-
-                if (this._onMessageCallback) {
-                    this._onMessageCallback(message, (response) => {
-                        socket.emit('message', response);
-                    });
-                }
-            });
-
-            // Manual state refresh request
-            socket.on('getState', () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                if (this._getStateCallback) {
-                    const state = this._getStateCallback();
-                    socket.emit('initialState', state);
-                }
-            });
-
-            socket.on('disconnect', () => {
-                console.log('[FlowCommand Remote] Client disconnected:', socket.id);
-                this._authenticatedSockets.delete(socket.id);
-            });
-
-            // File tree request
-            socket.on('getFileTree', async (data: { path?: string }) => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                try {
-                    const tree = await this._getFileTree(data.path);
-                    socket.emit('fileTree', tree);
-                } catch (err) {
-                    socket.emit('error', { message: 'Failed to get file tree' });
-                }
-            });
-
-            // File content request
-            socket.on('getFileContent', async (data: { path: string }) => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                try {
-                    const content = await this._getFileContent(data.path);
-                    socket.emit('fileContent', { path: data.path, content });
-                } catch (err) {
-                    socket.emit('error', { message: 'Failed to read file' });
-                }
-            });
-
-            // Terminal list request
-            socket.on('getTerminals', () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                const terminals = this._getTerminalList();
-                socket.emit('terminalList', terminals);
-            });
-
-            // Terminal input (send command)
-            socket.on('terminalInput', (data: { terminalId: number; text: string }) => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                this._sendTerminalInput(data.terminalId, data.text);
-            });
-
-            // Terminal history request
-            socket.on('getTerminalHistory', () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                if (this._getTerminalHistoryCallback) {
-                    const history = this._getTerminalHistoryCallback();
-                    socket.emit('terminalHistory', history);
-                }
-            });
-
-            // Problems/diagnostics request
-            socket.on('getProblems', () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                if (this._getProblemsCallback) {
-                    const problems = this._getProblemsCallback();
-                    socket.emit('problems', problems);
-                }
-            });
-
-            // Debug console output request
-            socket.on('getDebugOutput', () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                socket.emit('debugOutput', this._debugOutput);
-            });
-
-            // Forwarded ports request
-            socket.on('getPorts', async () => {
-                if (!this._authenticatedSockets.has(socket.id)) {
-                    socket.emit('error', { message: 'Not authenticated' });
-                    return;
-                }
-                const ports = await this._getForwardedPorts();
-                socket.emit('ports', ports);
-            });
-        });
-    }
-
-    /**
-     * Get forwarded ports from VS Code
-     * Note: VS Code doesn't expose a public API for accessing forwarded ports
-     * This will need to be implemented when VS Code adds such an API
-     */
-    private async _getForwardedPorts(): Promise<{ port: number; label?: string; url?: string }[]> {
-        // VS Code doesn't currently expose a public API for accessing forwarded ports
-        // The UI is ready, but we can't get port data without the Remote Development extension
-        // Return empty array for now
-        return [];
-    }
-
-    /**
-     * Get file tree for a directory
-     */
-    private async _getFileTree(relativePath?: string): Promise<{ name: string; path: string; isDirectory: boolean; children?: unknown[] }[]> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders?.length) {
-            return [];
-        }
-        
-        const basePath = relativePath 
-            ? vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath)
-            : workspaceFolders[0].uri;
-        
-        try {
-            const entries = await vscode.workspace.fs.readDirectory(basePath);
-            const result: { name: string; path: string; isDirectory: boolean }[] = [];
-            
-            // Specific hidden folders to exclude (but allow .github, .gsd, etc.)
-            const excludedHiddenFolders = ['.git', '.vscode', '.idea', '.venv', '.env', '.cache', '.npm', '.yarn'];
-            const excludedFolders = ['node_modules', '__pycache__', 'venv', 'dist', 'build', 'out', 'coverage'];
-            
-            for (const [name, fileType] of entries) {
-                // Skip specific hidden folders and common excludes
-                if (excludedHiddenFolders.includes(name) || excludedFolders.includes(name)) {
-                    continue;
-                }
-                
-                const entryPath = relativePath ? `${relativePath}/${name}` : name;
-                result.push({
-                    name,
-                    path: entryPath,
-                    isDirectory: fileType === vscode.FileType.Directory
-                });
-            }
-            
-            // Sort: directories first, then alphabetically
-            result.sort((a, b) => {
-                if (a.isDirectory !== b.isDirectory) {
-                    return a.isDirectory ? -1 : 1;
-                }
-                return a.name.localeCompare(b.name);
-            });
-            
-            return result;
-        } catch {
-            return [];
-        }
-    }
-
-    /**
-     * Get file content
-     */
-    private async _getFileContent(relativePath: string): Promise<string> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders?.length) {
-            throw new Error('No workspace');
-        }
-        
-        const fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
-        const content = await vscode.workspace.fs.readFile(fileUri);
-        return Buffer.from(content).toString('utf8');
-    }
-
-    /**
-     * Get list of active terminals with unique names
-     */
-    private _getTerminalList(): { id: number; name: string; isActive: boolean }[] {
-        const terminals = vscode.window.terminals;
-        const activeTerminal = vscode.window.activeTerminal;
-        
-        // Count occurrences of each name for deduplication
-        const nameCounts: Record<string, number> = {};
-        const nameIndices: Record<string, number> = {};
-        
-        for (const t of terminals) {
-            nameCounts[t.name] = (nameCounts[t.name] || 0) + 1;
-        }
-        
-        return terminals.map((t, index) => {
-            let displayName = t.name;
-            
-            // Add number suffix for duplicate names
-            if (nameCounts[t.name] > 1) {
-                nameIndices[t.name] = (nameIndices[t.name] || 0) + 1;
-                displayName = `${t.name} (${nameIndices[t.name]})`;
-            }
-            
+    try {
+      // Register debug adapter tracker factory for all debug types
+      this._debugTrackerDisposable =
+        vscode.debug.registerDebugAdapterTrackerFactory("*", {
+          createDebugAdapterTracker: (session) => {
             return {
-                id: index,
-                name: displayName,
-                isActive: t === activeTerminal
-            };
-        });
-    }
+              onWillReceiveMessage: (message: {
+                type?: string;
+                event?: string;
+                body?: { category?: string; output?: string };
+              }) => {
+                try {
+                  // Capture output events
+                  if (message.type === "event" && message.event === "output") {
+                    const body = message.body;
+                    if (body?.output) {
+                      const entry = {
+                        type: body.category || "console",
+                        message: body.output.replace(/\r?\n$/, ""), // Trim trailing newline
+                        timestamp: Date.now(),
+                        session: session.name,
+                      };
 
-    /**
-     * Send text to a terminal
-     */
-    private _sendTerminalInput(terminalId: number, text: string): void {
-        const terminals = vscode.window.terminals;
-        if (terminalId >= 0 && terminalId < terminals.length) {
-            terminals[terminalId].sendText(text);
-        }
-    }
+                      // Add to buffer (keep last 500)
+                      this._debugOutput.push(entry);
+                      if (this._debugOutput.length > 500) {
+                        this._debugOutput.shift();
+                      }
 
-    /**
-     * Broadcast a message to all authenticated clients
-     */
-    public broadcast(message: RemoteMessage): void {
-        if (!this._io) {
-            console.log('[FlowCommand Remote] broadcast: No io instance');
-            return;
-        }
-        if (message.type !== 'fileChanged') {
-            console.log('[FlowCommand Remote] Broadcasting to', this._authenticatedSockets.size, 'clients:', message.type);
-        }
-        for (const socketId of this._authenticatedSockets) {
-            this._io.to(socketId).emit('message', message);
-        }
-    }
-
-    /**
-     * Set callback for handling incoming messages
-     */
-    public onMessage(callback: (message: RemoteMessage, respond: (msg: RemoteMessage) => void) => void): void {
-        this._onMessageCallback = callback;
-    }
-
-    /**
-     * Set callback for getting current state
-     */
-    public onGetState(callback: () => RemoteState): void {
-        this._getStateCallback = callback;
-    }
-
-    /**
-     * Set callback for getting terminal command history
-     */
-    public onGetTerminalHistory(callback: () => unknown[]): void {
-        this._getTerminalHistoryCallback = callback;
-    }
-
-    /**
-     * Set callback for getting problems/diagnostics
-     */
-    public onGetProblems(callback: () => unknown[]): void {
-        this._getProblemsCallback = callback;
-    }
-
-    /**
-     * Register this session in globalState
-     */
-    private _registerSession(): void {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        const workspaceName = workspaceFolders?.[0]?.name || 'Untitled Workspace';
-
-        const session: SessionInfo = {
-            id: this._sessionId,
-            workspaceName,
-            port: this._port,
-            startTime: Date.now(),
-            pin: this._pin
-        };
-
-        const sessions = this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
-        // Remove any stale sessions for this workspace/port
-        const filtered = sessions.filter(s => s.port !== this._port);
-        filtered.push(session);
-        this._context.globalState.update('flowcommand.remoteSessions', filtered);
-    }
-
-    /**
-     * Unregister this session from globalState
-     */
-    private _unregisterSession(): void {
-        const sessions = this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
-        const filtered = sessions.filter(s => s.id !== this._sessionId);
-        this._context.globalState.update('flowcommand.remoteSessions', filtered);
-    }
-
-    /**
-     * Get all registered sessions
-     */
-    private _getAllSessions(): SessionInfo[] {
-        return this._context.globalState.get<SessionInfo[]>('flowcommand.remoteSessions', []);
-    }
-
-    /**
-     * Get connection info for display
-     */
-    public getConnectionInfo(): { urls: string[]; pin: string; port: number } {
-        const ips = this._getLocalIPs();
-        const urls = [
-            `http://localhost:${this._port}`,
-            ...ips.map(ip => `http://${ip}:${this._port}`)
-        ];
-        return {
-            urls,
-            pin: this._pin,
-            port: this._port
-        };
-    }
-
-    /**
-     * Check if server is running
-     */
-    public isRunning(): boolean {
-        return this._server !== null;
-    }
-
-    /**
-     * Generate PWA manifest
-     */
-    private _getManifest(): object {
-        return {
-            name: 'FlowCommand Remote',
-            short_name: 'FlowCommand',
-            description: 'Control your VS Code FlowCommand from anywhere',
-            start_url: '/',
-            scope: '/',
-            display: 'standalone',
-            orientation: 'portrait',
-            background_color: '#1e1e1e',
-            theme_color: '#007acc',
-            icons: [
-                {
-                    src: '/media/FC-logo.svg',
-                    sizes: 'any',
-                    type: 'image/svg+xml',
-                    purpose: 'any maskable'
-                },
-                {
-                    src: '/media/FC-logo.svg',
-                    sizes: '192x192',
-                    type: 'image/svg+xml'
-                },
-                {
-                    src: '/media/FC-logo.svg',
-                    sizes: '512x512',
-                    type: 'image/svg+xml'
+                      // Broadcast to all connected clients (only if we have connections)
+                      if (this._authenticatedSockets.size > 0) {
+                        this.broadcast({
+                          type: "debugOutput",
+                          entry,
+                        });
+                      }
+                    }
+                  }
+                } catch (err) {
+                  // Don't let debug tracking errors crash the extension
+                  console.error(
+                    "[FlowCommand Remote] Debug tracker error:",
+                    err,
+                  );
                 }
-            ]
-        };
+              },
+            };
+          },
+        });
+    } catch (err) {
+      console.error("[FlowCommand Remote] Failed to setup debug tracker:", err);
+    }
+  }
+
+  /**
+   * Setup file system watchers for real-time updates
+   */
+  private _setupFileWatchers(): void {
+    // Avoid duplicate registration
+    if (this._fileWatchers.length > 0) {
+      return;
     }
 
-    /**
-     * Generate service worker
-     */
-    private _getServiceWorker(): string {
-        return `
+    try {
+      // Watch for file changes
+      const changeWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+
+          const workspaceFolders = vscode.workspace.workspaceFolders;
+          if (!workspaceFolders?.length) return;
+
+          const relativePath = vscode.workspace.asRelativePath(e.document.uri);
+          // Skip if outside workspace or is settings file
+          if (relativePath.startsWith("..") || relativePath.includes(".vscode"))
+            return;
+
+          const content = e.document.getText();
+          const contentBytes = Buffer.byteLength(content, "utf8");
+          const payload: RemoteMessage = {
+            type: "fileChanged",
+            path: relativePath,
+            content: contentBytes <= this._MAX_FILE_CHANGE_BYTES ? content : "",
+            contentBytes,
+            truncated: contentBytes > this._MAX_FILE_CHANGE_BYTES,
+          };
+
+          this._queueFileChangeBroadcast(relativePath, payload);
+        } catch (err) {
+          console.error("[FlowCommand Remote] File change watcher error:", err);
+        }
+      });
+
+      // Watch for file creation
+      const createWatcher = vscode.workspace.onDidCreateFiles((e) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+
+          for (const file of e.files) {
+            const relativePath = vscode.workspace.asRelativePath(file);
+            if (!relativePath.startsWith("..")) {
+              this.broadcast({
+                type: "fileCreated",
+                path: relativePath,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("[FlowCommand Remote] File create watcher error:", err);
+        }
+      });
+
+      // Watch for file deletion
+      const deleteWatcher = vscode.workspace.onDidDeleteFiles((e) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+
+          for (const file of e.files) {
+            const relativePath = vscode.workspace.asRelativePath(file);
+            if (!relativePath.startsWith("..")) {
+              this.broadcast({
+                type: "fileDeleted",
+                path: relativePath,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("[FlowCommand Remote] File delete watcher error:", err);
+        }
+      });
+
+      // Watch for file rename
+      const renameWatcher = vscode.workspace.onDidRenameFiles((e) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+
+          for (const file of e.files) {
+            const oldPath = vscode.workspace.asRelativePath(file.oldUri);
+            const newPath = vscode.workspace.asRelativePath(file.newUri);
+            if (!newPath.startsWith("..")) {
+              this.broadcast({
+                type: "fileRenamed",
+                oldPath,
+                newPath,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("[FlowCommand Remote] File rename watcher error:", err);
+        }
+      });
+
+      this._fileWatchers.push(
+        changeWatcher,
+        createWatcher,
+        deleteWatcher,
+        renameWatcher,
+      );
+    } catch (err) {
+      console.error("[FlowCommand Remote] Failed to setup file watchers:", err);
+    }
+  }
+
+  /**
+   * Setup terminal watchers for real-time updates
+   */
+  private _setupTerminalWatchers(): void {
+    // Avoid duplicate registration
+    if (this._terminalWatchers.length > 0) {
+      return;
+    }
+
+    try {
+      // Watch terminal open
+      const openWatcher = vscode.window.onDidOpenTerminal((terminal) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+          this.broadcast({
+            type: "terminalOpened",
+            terminals: this._getTerminalList(),
+          });
+        } catch (err) {
+          console.error(
+            "[FlowCommand Remote] Terminal open watcher error:",
+            err,
+          );
+        }
+      });
+
+      // Watch terminal close
+      const closeWatcher = vscode.window.onDidCloseTerminal((terminal) => {
+        try {
+          if (this._authenticatedSockets.size === 0) return;
+          this.broadcast({
+            type: "terminalClosed",
+            terminals: this._getTerminalList(),
+          });
+        } catch (err) {
+          console.error(
+            "[FlowCommand Remote] Terminal close watcher error:",
+            err,
+          );
+        }
+      });
+
+      // Watch terminal active change
+      const activeWatcher = vscode.window.onDidChangeActiveTerminal(
+        (terminal) => {
+          try {
+            if (this._authenticatedSockets.size === 0) return;
+            const index = terminal
+              ? vscode.window.terminals.indexOf(terminal)
+              : -1;
+            this.broadcast({
+              type: "terminalActiveChanged",
+              activeTerminalId: index,
+            });
+          } catch (err) {
+            console.error(
+              "[FlowCommand Remote] Terminal active watcher error:",
+              err,
+            );
+          }
+        },
+      );
+
+      this._terminalWatchers.push(openWatcher, closeWatcher, activeWatcher);
+    } catch (err) {
+      console.error(
+        "[FlowCommand Remote] Failed to setup terminal watchers:",
+        err,
+      );
+    }
+  }
+
+  /**
+   * Setup Socket.IO for real-time communication
+   */
+  private _setupSocketIO(): void {
+    if (!this._server) return;
+
+    // Create Socket.IO server - socket.io is now external, so use default transports
+    this._io = new SocketIOServer(this._server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+    });
+
+    this._io.on("connection", (socket: Socket) => {
+      console.log("[FlowCommand Remote] Client connected:", socket.id);
+
+      // Handle authentication
+      socket.on("authenticate", (data: { pin: string }) => {
+        console.log(
+          "[FlowCommand Remote] Auth attempt with PIN:",
+          data.pin,
+          "Expected:",
+          this._pin,
+        );
+        if (data.pin === this._pin) {
+          this._authenticatedSockets.add(socket.id);
+          socket.emit("authenticated", { success: true });
+          console.log("[FlowCommand Remote] Socket authenticated:", socket.id);
+
+          // Send initial state
+          if (this._getStateCallback) {
+            const state = this._getStateCallback();
+            console.log(
+              "[FlowCommand Remote] Sending initial state:",
+              JSON.stringify(state).substring(0, 200),
+            );
+            socket.emit("initialState", state);
+          } else {
+            console.log("[FlowCommand Remote] No getStateCallback registered!");
+          }
+        } else {
+          socket.emit("authenticated", {
+            success: false,
+            message: "Invalid PIN",
+          });
+          console.log("[FlowCommand Remote] Auth failed for:", socket.id);
+        }
+      });
+
+      // Handle messages from authenticated clients
+      socket.on("message", (message: RemoteMessage) => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+
+        if (this._onMessageCallback) {
+          this._onMessageCallback(message, (response) => {
+            socket.emit("message", response);
+          });
+        }
+      });
+
+      // Manual state refresh request
+      socket.on("getState", () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        if (this._getStateCallback) {
+          const state = this._getStateCallback();
+          socket.emit("initialState", state);
+        }
+      });
+
+      socket.on("disconnect", () => {
+        console.log("[FlowCommand Remote] Client disconnected:", socket.id);
+        this._authenticatedSockets.delete(socket.id);
+      });
+
+      // File tree request
+      socket.on("getFileTree", async (data: { path?: string }) => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        try {
+          const tree = await this._getFileTree(data.path);
+          socket.emit("fileTree", tree);
+        } catch (err) {
+          socket.emit("error", { message: "Failed to get file tree" });
+        }
+      });
+
+      // File content request
+      socket.on("getFileContent", async (data: { path: string }) => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        try {
+          const content = await this._getFileContent(data.path);
+          socket.emit("fileContent", { path: data.path, content });
+        } catch (err) {
+          socket.emit("error", { message: "Failed to read file" });
+        }
+      });
+
+      // Terminal list request
+      socket.on("getTerminals", () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        const terminals = this._getTerminalList();
+        socket.emit("terminalList", terminals);
+      });
+
+      // Terminal input (send command)
+      socket.on(
+        "terminalInput",
+        (data: { terminalId: number; text: string }) => {
+          if (!this._authenticatedSockets.has(socket.id)) {
+            socket.emit("error", { message: "Not authenticated" });
+            return;
+          }
+          this._sendTerminalInput(data.terminalId, data.text);
+        },
+      );
+
+      // Terminal history request
+      socket.on("getTerminalHistory", () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        if (this._getTerminalHistoryCallback) {
+          const history = this._getTerminalHistoryCallback();
+          socket.emit("terminalHistory", history);
+        }
+      });
+
+      // Problems/diagnostics request
+      socket.on("getProblems", () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        if (this._getProblemsCallback) {
+          const problems = this._getProblemsCallback();
+          socket.emit("problems", problems);
+        }
+      });
+
+      // Debug console output request
+      socket.on("getDebugOutput", () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        socket.emit("debugOutput", this._debugOutput);
+      });
+
+      // Forwarded ports request
+      socket.on("getPorts", async () => {
+        if (!this._authenticatedSockets.has(socket.id)) {
+          socket.emit("error", { message: "Not authenticated" });
+          return;
+        }
+        const ports = await this._getForwardedPorts();
+        socket.emit("ports", ports);
+      });
+    });
+  }
+
+  /**
+   * Get forwarded ports from VS Code
+   * Note: VS Code doesn't expose a public API for accessing forwarded ports
+   * This will need to be implemented when VS Code adds such an API
+   */
+  private async _getForwardedPorts(): Promise<
+    { port: number; label?: string; url?: string }[]
+  > {
+    // VS Code doesn't currently expose a public API for accessing forwarded ports
+    // The UI is ready, but we can't get port data without the Remote Development extension
+    // Return empty array for now
+    return [];
+  }
+
+  /**
+   * Get file tree for a directory
+   */
+  private async _getFileTree(
+    relativePath?: string,
+  ): Promise<
+    { name: string; path: string; isDirectory: boolean; children?: unknown[] }[]
+  > {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders?.length) {
+      return [];
+    }
+
+    const basePath = relativePath
+      ? vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath)
+      : workspaceFolders[0].uri;
+
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(basePath);
+      const result: { name: string; path: string; isDirectory: boolean }[] = [];
+
+      // Specific hidden folders to exclude (but allow .github, .gsd, etc.)
+      const excludedHiddenFolders = [
+        ".git",
+        ".vscode",
+        ".idea",
+        ".venv",
+        ".env",
+        ".cache",
+        ".npm",
+        ".yarn",
+      ];
+      const excludedFolders = [
+        "node_modules",
+        "__pycache__",
+        "venv",
+        "dist",
+        "build",
+        "out",
+        "coverage",
+      ];
+
+      for (const [name, fileType] of entries) {
+        // Skip specific hidden folders and common excludes
+        if (
+          excludedHiddenFolders.includes(name) ||
+          excludedFolders.includes(name)
+        ) {
+          continue;
+        }
+
+        const entryPath = relativePath ? `${relativePath}/${name}` : name;
+        result.push({
+          name,
+          path: entryPath,
+          isDirectory: fileType === vscode.FileType.Directory,
+        });
+      }
+
+      // Sort: directories first, then alphabetically
+      result.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      return result;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get file content
+   */
+  private async _getFileContent(relativePath: string): Promise<string> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders?.length) {
+      throw new Error("No workspace");
+    }
+
+    const fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, relativePath);
+    const content = await vscode.workspace.fs.readFile(fileUri);
+    return Buffer.from(content).toString("utf8");
+  }
+
+  /**
+   * Get list of active terminals with unique names
+   */
+  private _getTerminalList(): {
+    id: number;
+    name: string;
+    isActive: boolean;
+  }[] {
+    const terminals = vscode.window.terminals;
+    const activeTerminal = vscode.window.activeTerminal;
+
+    // Count occurrences of each name for deduplication
+    const nameCounts: Record<string, number> = {};
+    const nameIndices: Record<string, number> = {};
+
+    for (const t of terminals) {
+      nameCounts[t.name] = (nameCounts[t.name] || 0) + 1;
+    }
+
+    return terminals.map((t, index) => {
+      let displayName = t.name;
+
+      // Add number suffix for duplicate names
+      if (nameCounts[t.name] > 1) {
+        nameIndices[t.name] = (nameIndices[t.name] || 0) + 1;
+        displayName = `${t.name} (${nameIndices[t.name]})`;
+      }
+
+      return {
+        id: index,
+        name: displayName,
+        isActive: t === activeTerminal,
+      };
+    });
+  }
+
+  /**
+   * Send text to a terminal
+   */
+  private _sendTerminalInput(terminalId: number, text: string): void {
+    const terminals = vscode.window.terminals;
+    if (terminalId >= 0 && terminalId < terminals.length) {
+      terminals[terminalId].sendText(text);
+    }
+  }
+
+  /**
+   * Broadcast a message to all authenticated clients
+   */
+  public broadcast(message: RemoteMessage): void {
+    if (!this._io) {
+      console.log("[FlowCommand Remote] broadcast: No io instance");
+      return;
+    }
+    if (message.type !== "fileChanged") {
+      console.log(
+        "[FlowCommand Remote] Broadcasting to",
+        this._authenticatedSockets.size,
+        "clients:",
+        message.type,
+      );
+    }
+    for (const socketId of this._authenticatedSockets) {
+      this._io.to(socketId).emit("message", message);
+    }
+  }
+
+  /**
+   * Set callback for handling incoming messages
+   */
+  public onMessage(
+    callback: (
+      message: RemoteMessage,
+      respond: (msg: RemoteMessage) => void,
+    ) => void,
+  ): void {
+    this._onMessageCallback = callback;
+  }
+
+  /**
+   * Set callback for getting current state
+   */
+  public onGetState(callback: () => RemoteState): void {
+    this._getStateCallback = callback;
+  }
+
+  /**
+   * Set callback for getting terminal command history
+   */
+  public onGetTerminalHistory(callback: () => unknown[]): void {
+    this._getTerminalHistoryCallback = callback;
+  }
+
+  /**
+   * Set callback for getting problems/diagnostics
+   */
+  public onGetProblems(callback: () => unknown[]): void {
+    this._getProblemsCallback = callback;
+  }
+
+  /**
+   * Register this session in globalState
+   */
+  private _registerSession(): void {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceName = workspaceFolders?.[0]?.name || "Untitled Workspace";
+
+    const session: SessionInfo = {
+      id: this._sessionId,
+      workspaceName,
+      port: this._port,
+      startTime: Date.now(),
+      pin: this._pin,
+    };
+
+    const sessions = this._context.globalState.get<SessionInfo[]>(
+      "flowcommand.remoteSessions",
+      [],
+    );
+    // Remove any stale sessions for this workspace/port
+    const filtered = sessions.filter((s) => s.port !== this._port);
+    filtered.push(session);
+    this._context.globalState.update("flowcommand.remoteSessions", filtered);
+  }
+
+  /**
+   * Unregister this session from globalState
+   */
+  private _unregisterSession(): void {
+    const sessions = this._context.globalState.get<SessionInfo[]>(
+      "flowcommand.remoteSessions",
+      [],
+    );
+    const filtered = sessions.filter((s) => s.id !== this._sessionId);
+    this._context.globalState.update("flowcommand.remoteSessions", filtered);
+  }
+
+  /**
+   * Get all registered sessions
+   */
+  private _getAllSessions(): SessionInfo[] {
+    return this._context.globalState.get<SessionInfo[]>(
+      "flowcommand.remoteSessions",
+      [],
+    );
+  }
+
+  /**
+   * Get connection info for display
+   */
+  public getConnectionInfo(): { urls: string[]; pin: string; port: number } {
+    const ips = this._getLocalIPs();
+    const urls = [
+      `http://localhost:${this._port}`,
+      ...ips.map((ip) => `http://${ip}:${this._port}`),
+    ];
+    return {
+      urls,
+      pin: this._pin,
+      port: this._port,
+    };
+  }
+
+  /**
+   * Check if server is running
+   */
+  public isRunning(): boolean {
+    return this._server !== null;
+  }
+
+  /**
+   * Generate PWA manifest
+   */
+  private _getManifest(): object {
+    return {
+      name: "FlowCommand Remote",
+      short_name: "FlowCommand",
+      description: "Control your VS Code FlowCommand from anywhere",
+      start_url: "/",
+      scope: "/",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#1e1e1e",
+      theme_color: "#007acc",
+      icons: [
+        {
+          src: "/media/FC-logo.svg",
+          sizes: "any",
+          type: "image/svg+xml",
+          purpose: "any maskable",
+        },
+        {
+          src: "/media/FC-logo.svg",
+          sizes: "192x192",
+          type: "image/svg+xml",
+        },
+        {
+          src: "/media/FC-logo.svg",
+          sizes: "512x512",
+          type: "image/svg+xml",
+        },
+      ],
+    };
+  }
+
+  /**
+   * Generate service worker
+   */
+  private _getServiceWorker(): string {
+    return `
 const CACHE_NAME = 'flowcommand-remote-v1';
 const ASSETS = [
     '/app',
@@ -987,29 +1127,29 @@ self.addEventListener('fetch', event => {
     );
 });
         `.trim();
-    }
+  }
 
-    /**
-     * Helper to escape HTML
-     */
-    private _escapeHtml(text: string): string {
-        const map: Record<string, string> = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
+  /**
+   * Helper to escape HTML
+   */
+  private _escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+  }
 
-    /**
-     * Generate landing page HTML
-     */
-    private _getLandingPageHtml(): string {
-        const sessions = this._getAllSessions();
-        
-        return `<!DOCTYPE html>
+  /**
+   * Generate landing page HTML
+   */
+  private _getLandingPageHtml(): string {
+    const sessions = this._getAllSessions();
+
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1226,12 +1366,16 @@ self.addEventListener('fetch', event => {
             <div class="error" id="error" style="display: none;"></div>
         </div>
         
-        ${sessions.length > 0 ? `
+        ${
+          sessions.length > 0
+            ? `
         <div class="card">
             <h2><span class="codicon codicon-server"></span> Active Sessions</h2>
             <div class="session-list">
-                ${sessions.map(s => `
-                    <div class="session-item ${s.id === this._sessionId ? 'current' : ''}"
+                ${sessions
+                  .map(
+                    (s) => `
+                    <div class="session-item ${s.id === this._sessionId ? "current" : ""}"
                          data-port="${s.port}"
                          onclick="selectSession(${s.port})">
                         <div class="session-icon">
@@ -1241,12 +1385,16 @@ self.addEventListener('fetch', event => {
                             <div class="session-name">${this._escapeHtml(s.workspaceName)}</div>
                             <div class="session-port">Port ${s.port}</div>
                         </div>
-                        ${s.id === this._sessionId ? '<span class="session-badge">Current</span>' : ''}
+                        ${s.id === this._sessionId ? '<span class="session-badge">Current</span>' : ""}
                     </div>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
             </div>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
         
         <p class="help-text">
             Find the PIN in VS Code's Output panel → <code>FlowCommand Remote</code>
@@ -1332,28 +1480,36 @@ self.addEventListener('fetch', event => {
     </script>
 </body>
 </html>`;
+  }
+
+  /**
+   * Generate main app HTML
+   */
+  private _getAppHtml(): string {
+    // Load webview.js and main.css from media folder
+    const webviewJsPath = path.join(
+      this._extensionUri.fsPath,
+      "media",
+      "webview.js",
+    );
+    const mainCssPath = path.join(
+      this._extensionUri.fsPath,
+      "media",
+      "main.css",
+    );
+
+    let webviewJs = "";
+    let mainCss = "";
+
+    try {
+      webviewJs = fs.readFileSync(webviewJsPath, "utf8");
+      mainCss = fs.readFileSync(mainCssPath, "utf8");
+    } catch (err) {
+      console.error("[FlowCommand Remote] Failed to read media files:", err);
     }
 
-    /**
-     * Generate main app HTML
-     */
-    private _getAppHtml(): string {
-        // Load webview.js and main.css from media folder
-        const webviewJsPath = path.join(this._extensionUri.fsPath, 'media', 'webview.js');
-        const mainCssPath = path.join(this._extensionUri.fsPath, 'media', 'main.css');
-        
-        let webviewJs = '';
-        let mainCss = '';
-        
-        try {
-            webviewJs = fs.readFileSync(webviewJsPath, 'utf8');
-            mainCss = fs.readFileSync(mainCssPath, 'utf8');
-        } catch (err) {
-            console.error('[FlowCommand Remote] Failed to read media files:', err);
-        }
-
-        // CSS variable fallbacks for browser (VS Code provides these in webview)
-        const cssVariableFallbacks = `
+    // CSS variable fallbacks for browser (VS Code provides these in webview)
+    const cssVariableFallbacks = `
         :root {
             --vscode-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             --vscode-font-size: 14px;
@@ -1422,8 +1578,7 @@ self.addEventListener('fetch', event => {
             --vscode-scrollbarSlider-activeBackground: rgba(0, 0, 0, 0.6);
         }`;
 
-
-        return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2579,9 +2734,6 @@ self.addEventListener('fetch', event => {
             <button class="remote-header-btn" id="theme-toggle-btn" title="Toggle Theme">
                 <span class="codicon codicon-symbol-color"></span>
             </button>
-            <button class="remote-header-btn" id="notification-permission-btn" title="Enable Notifications" style="display:none;">
-                <span class="codicon codicon-bell-dot"></span>
-            </button>
             <button class="remote-header-btn" id="remote-logout-btn" title="Logout">
                 <span class="codicon codicon-sign-out"></span>
             </button>
@@ -2665,9 +2817,6 @@ self.addEventListener('fetch', event => {
                         <button class="queue-clear-btn" id="queue-clear-btn" title="Clear all queue items" aria-label="Clear queue">
                             <span class="codicon codicon-trash" aria-hidden="true"></span>
                         </button>
-                        <button class="queue-pause-btn" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
-                            <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
-                        </button>
                     </div>
                     <div class="queue-list" id="queue-list" role="list" aria-label="Queued prompts">
                         <div class="queue-empty" role="status">No prompts in queue</div>
@@ -2691,6 +2840,9 @@ self.addEventListener('fetch', event => {
                                     <span class="codicon codicon-chevron-down"></span>
                                 </button>
                             </div>
+                            <button class="queue-pause-btn hidden" id="queue-pause-btn" title="Pause/Resume queue processing" aria-label="Pause queue">
+                                <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
+                            </button>
                         </div>
                         <div class="actions-right">
                             <button id="end-session-btn" class="icon-btn end-session-btn" title="End session" aria-label="End session">
@@ -2896,129 +3048,7 @@ self.addEventListener('fetch', event => {
         // Remote users explicitly want notifications since they're using the web interface
         window.mobileNotificationEnabled = true;
         
-        function isIOSSafari() {
-            var ua = navigator.userAgent || '';
-            var isIOS = /iPad|iPhone|iPod/.test(ua);
-            var isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
-            return isIOS && isSafari;
-        }
-
-        function isStandaloneMode() {
-            return (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;
-        }
-
-        function getIosNotificationHelp() {
-            if (isStandaloneMode()) {
-                return 'You are in PWA mode but notifications may still be blocked. Try: Settings → Safari → Advanced → Experimental Features → Push API (enable). Then reload this page.';
-            }
-            return 'To enable notifications on iOS: 1) Tap the Share button, 2) Select "Add to Home Screen", 3) Open from the Home Screen icon, 4) Tap the bell button.';
-        }
-
-        function getDesktopNotificationHelp() {
-            return 'Notifications blocked. Click the lock/info icon in the URL bar → Site Settings → Notifications → Allow. Then reload.';
-        }
-
-        function requestNotificationPermission() {
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission().then(function(permission) {
-                    console.log('[FlowCommand] Notification permission:', permission);
-                    updateNotificationButton();
-                    // Show immediate feedback
-                    if (permission === 'granted') {
-                        showVisualNotification('Notifications enabled! You will receive alerts when Copilot asks questions.');
-                    } else if (permission === 'denied') {
-                        // Don't show error - user explicitly denied, they know
-                        console.log('[FlowCommand] User denied notification permission');
-                    }
-                }).catch(function(err) {
-                    console.error('[FlowCommand] Notification permission request failed:', err);
-                    // Silently fall back to visual notifications
-                });
-            }
-        }
-        
-        // Update notification button visibility based on permission state
-        function updateNotificationButton() {
-            const notifBtn = document.getElementById('notification-permission-btn');
-            if (!notifBtn) return;
-            
-            if (!('Notification' in window)) {
-                // Browser doesn't support notifications - hide button
-                notifBtn.style.display = 'none';
-                return;
-            }
-            
-            if (Notification.permission === 'default') {
-                // Permission not yet requested - show button with bell-dot
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell-dot"></span>';
-                if (isIOSSafari() && !isStandaloneMode()) {
-                    notifBtn.title = 'iOS Safari requires Add to Home Screen for notifications';
-                } else {
-                    notifBtn.title = 'Enable Push Notifications';
-                }
-            } else if (Notification.permission === 'granted') {
-                // Permission granted - show bell (solid)
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell"></span>';
-                notifBtn.title = 'Notifications Enabled';
-            } else {
-                // Permission denied - show bell-slash
-                notifBtn.style.display = 'flex';
-                notifBtn.innerHTML = '<span class="codicon codicon-bell-slash"></span>';
-                if (isIOSSafari()) {
-                    notifBtn.title = 'iOS Safari notifications require Home Screen install';
-                } else {
-                    notifBtn.title = 'Notifications Blocked - Enable in browser settings';
-                }
-            }
-        }
-        
-        // Bind notification button click handler (must be user gesture for iOS)
-        setTimeout(function() {
-            const notifBtn = document.getElementById('notification-permission-btn');
-            if (notifBtn) {
-                notifBtn.addEventListener('click', function() {
-                    if (!('Notification' in window)) {
-                        showVisualNotification('Push notifications not supported. Visual alerts will be used instead.');
-                        return;
-                    }
-                    if (Notification.permission === 'default') {
-                        if (isIOSSafari() && !isStandaloneMode()) {
-                            var iosHelp = getIosNotificationHelp();
-                            showVisualNotification(iosHelp);
-                            return;
-                        }
-                        requestNotificationPermission();
-                    } else if (Notification.permission === 'denied') {
-                        // Show helpful guidance instead of generic error
-                        if (isIOSSafari()) {
-                            var help = getIosNotificationHelp();
-                            showVisualNotification(help);
-                        } else {
-                            var desktopHelp = getDesktopNotificationHelp();
-                            showVisualNotification(desktopHelp);
-                        }
-                    } else {
-                        // Already granted - show test notification
-                        try {
-                            new Notification('FlowCommand Test', {
-                                body: 'Notifications are working!',
-                                icon: '/media/FC-logo.svg'
-                            });
-                        } catch (e) {
-                            showVisualNotification('Native notifications failed, using visual alerts.');
-                        }
-                    }
-                });
-            }
-            updateNotificationButton();
-        }, 100);
-        
-        // Don't auto-request on page load - let user click the button (required for iOS)
-        // requestNotificationPermission();
-        
-        // Visual notification fallback (for browsers that don't support Web Notifications)
+        // Visual notification toast (used when mobile notifications are enabled)
         function showVisualNotification(prompt, color) {
             var bgColor = color || '#0078d4';
             // Truncate long messages for the visual toast
@@ -3041,39 +3071,8 @@ self.addEventListener('fetch', event => {
         
         function showMobileNotification(prompt) {
             console.log('[FlowCommand] showMobileNotification called with:', prompt.substring(0, 50));
-            
-            // Check if native notifications are available and granted
-            const nativeNotificationsAvailable = ('Notification' in window) && Notification.permission === 'granted';
-            
-            if (nativeNotificationsAvailable) {
-                // Use native notifications
-                var preview = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
-                try {
-                    console.log('[FlowCommand] Showing native browser notification');
-                    var notification = new Notification('FlowCommand', {
-                        body: preview,
-                        icon: '/media/FC-logo.svg',
-                        tag: 'flowcommand-pending',
-                        requireInteraction: true,
-                        silent: false
-                    });
-                    notification.onclick = function() {
-                        window.focus();
-                        notification.close();
-                    };
-                    setTimeout(function() { notification.close(); }, 30000);
-                } catch (e) {
-                    console.error('[FlowCommand] Native notification error, falling back to visual:', e);
-                    showVisualNotification(prompt);
-                }
-            } else {
-                // Fallback to visual toast
-                console.log('[FlowCommand] Using visual toast notification (native not available/granted)');
-                showVisualNotification(prompt);
-            }
+            showVisualNotification(prompt);
         }
-        
-        // Make showMobileNotification globally accessible
         
         // Make showMobileNotification globally accessible
         window.showMobileNotification = showMobileNotification;
@@ -3187,10 +3186,23 @@ self.addEventListener('fetch', event => {
                         localStorage.setItem('flowcommand_pin', PIN);
                     } catch (e) {}
                     
-                    // Flush message queue
+                    // Remove stale planReviewResponse messages from queue before flushing.
+                    // If user responded to a plan review while disconnected, the IDE may have
+                    // already resolved it. Sending the stale response would be harmless (server
+                    // ignores unmatched reviewIds) but we clean up for clarity.
+                    // The fresh state from getState will sync the correct plan review status.
+                    messageQueue = messageQueue.filter(function(msg) {
+                        return msg.type !== 'planReviewResponse';
+                    });
+
+                    // Flush remaining message queue
                     while (messageQueue.length > 0) {
                         socket.emit('message', messageQueue.shift());
                     }
+                    
+                    // Request fresh state on every reconnect to ensure plan reviews, 
+                    // pending requests, and queue state are always up to date
+                    socket.emit('getState');
                     
                     // Refresh current tab data after reconnection
                     const activeTab = document.querySelector('.remote-tab.active');
@@ -3230,52 +3242,81 @@ self.addEventListener('fetch', event => {
                 }
 
                 if (window.dispatchVSCodeMessage) {
-                    if (state.queue !== undefined) {
-                        window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled });
-                    }
-                    if (state.currentSession) {
-                        window.dispatchVSCodeMessage({ type: 'updateCurrentSession', history: state.currentSession });
-                    }
-                    if (state.persistedHistory) {
-                        window.dispatchVSCodeMessage({ type: 'updatePersistedHistory', history: state.persistedHistory });
-                    }
-                    if (state.settings) {
-                        window.dispatchVSCodeMessage({ type: 'updateSettings', ...state.settings });
-                        // For remote clients: default to notifications ON (they explicitly want them)
-                        // Only turn OFF if VS Code explicitly disabled it, otherwise keep TRUE
-                        // This ensures remote users get notifications by default
-                        if (state.settings.mobileNotificationEnabled === false) {
-                            window.mobileNotificationEnabled = false;
+                    // Each section wrapped in try-catch to prevent errors in one section
+                    // from blocking subsequent sections (especially plan review at the end)
+                    try {
+                        if (state.queue !== undefined) {
+                            window.dispatchVSCodeMessage({ type: 'updateQueue', queue: state.queue, enabled: state.queueEnabled, paused: state.queuePaused });
                         }
-                        // Request permission if enabled (or still at default true)
-                        if (window.mobileNotificationEnabled) {
-                            requestNotificationPermission();
+                    } catch (e) { console.error('[FlowCommand] applyInitialState queue error:', e); }
+
+                    try {
+                        if (state.currentSession) {
+                            window.dispatchVSCodeMessage({ type: 'updateCurrentSession', history: state.currentSession });
                         }
-                    }
-                    if (state.pendingRequest) {
-                        window.dispatchVSCodeMessage({
-                            type: 'toolCallPending',
-                            id: state.pendingRequest.id,
-                            prompt: state.pendingRequest.prompt,
-                            context: state.pendingRequest.context,
-                            isApprovalQuestion: state.pendingRequest.isApprovalQuestion,
-                            choices: state.pendingRequest.choices
-                        });
-                    } else if (state.pendingMultiQuestion) {
-                        // Handle multi-question pending state
-                        window.dispatchVSCodeMessage({
-                            type: 'multiQuestionPending',
-                            requestId: state.pendingMultiQuestion.requestId,
-                            questions: state.pendingMultiQuestion.questions
-                        });
-                    } else {
-                        // No pending request - clear any stale pending UI
-                        window.dispatchVSCodeMessage({ type: 'toolCallCancelled', id: '__stale__' });
-                    }
-                    // Sync queued agent request count
-                    if (state.queuedAgentRequestCount !== undefined) {
-                        window.dispatchVSCodeMessage({ type: 'queuedAgentRequestCount', count: state.queuedAgentRequestCount });
-                    }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState session error:', e); }
+
+                    try {
+                        if (state.persistedHistory) {
+                            window.dispatchVSCodeMessage({ type: 'updatePersistedHistory', history: state.persistedHistory });
+                        }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState history error:', e); }
+
+                    try {
+                        if (state.settings) {
+                            window.dispatchVSCodeMessage({ type: 'updateSettings', ...state.settings });
+                            if (state.settings.mobileNotificationEnabled === false) {
+                                window.mobileNotificationEnabled = false;
+                            }
+                        }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState settings error:', e); }
+
+                    try {
+                        if (state.pendingRequest) {
+                            window.dispatchVSCodeMessage({
+                                type: 'toolCallPending',
+                                id: state.pendingRequest.id,
+                                prompt: state.pendingRequest.prompt,
+                                context: state.pendingRequest.context,
+                                isApprovalQuestion: state.pendingRequest.isApprovalQuestion,
+                                choices: state.pendingRequest.choices
+                            });
+                        } else if (state.pendingMultiQuestion) {
+                            window.dispatchVSCodeMessage({
+                                type: 'multiQuestionPending',
+                                requestId: state.pendingMultiQuestion.requestId,
+                                questions: state.pendingMultiQuestion.questions
+                            });
+                        } else {
+                            window.dispatchVSCodeMessage({ type: 'toolCallCancelled', id: '__stale__' });
+                        }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState pending error:', e); }
+
+                    try {
+                        if (state.queuedAgentRequestCount !== undefined) {
+                            window.dispatchVSCodeMessage({ type: 'queuedAgentRequestCount', count: state.queuedAgentRequestCount });
+                        }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState agent count error:', e); }
+
+                    // Plan review sync - runs independently of all above sections
+                    try {
+                        if (state.pendingPlanReview) {
+                            console.log('[FlowCommand] applyInitialState: restoring plan review', state.pendingPlanReview.reviewId);
+                            window.dispatchVSCodeMessage({
+                                type: 'planReviewPending',
+                                reviewId: state.pendingPlanReview.reviewId,
+                                title: state.pendingPlanReview.title,
+                                plan: state.pendingPlanReview.plan
+                            });
+                        } else {
+                            console.log('[FlowCommand] applyInitialState: clearing stale plan review');
+                            window.dispatchVSCodeMessage({
+                                type: 'planReviewCompleted',
+                                reviewId: '__stale__',
+                                status: 'cancelled'
+                            });
+                        }
+                    } catch (e) { console.error('[FlowCommand] applyInitialState plan review error:', e); }
                 }
             }
 
@@ -3320,9 +3361,6 @@ self.addEventListener('fetch', event => {
                 // Sync mobile notification flag when settings change
                 if (message.type === 'updateSettings') {
                     window.mobileNotificationEnabled = message.mobileNotificationEnabled === true;
-                    if (window.mobileNotificationEnabled) {
-                        requestNotificationPermission();
-                    }
                 }
             });
             
@@ -3904,6 +3942,20 @@ self.addEventListener('fetch', event => {
         
         // Start connection
         connectSocket();
+
+        // Early plan review restoration from localStorage (shows modal before socket connects)
+        // This handles page-reload scenarios where the server hasn't sent state yet
+        // Server state will override this via applyInitialState (server is source of truth)
+        try {
+            var savedPlanReview = localStorage.getItem('flowcommand_pendingPlanReview');
+            if (savedPlanReview) {
+                var prData = JSON.parse(savedPlanReview);
+                if (prData && prData.reviewId && prData.plan) {
+                    console.log('[FlowCommand] Restoring plan review from localStorage:', prData.reviewId);
+                    window.__pendingLocalStoragePlanReview = prData;
+                }
+            }
+        } catch (e) { /* localStorage not available */ }
     </script>
     
     <!-- Main webview.js -->
@@ -3912,86 +3964,89 @@ self.addEventListener('fetch', event => {
     </script>
 </body>
 </html>`;
+  }
+
+  /**
+   * Stop the server
+   */
+  public stop(): void {
+    this._unregisterSession();
+
+    // Clear pending file change broadcasts
+    for (const timer of this._fileChangeDebounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this._fileChangeDebounceTimers.clear();
+    this._pendingFileChanges.clear();
+
+    // Dispose file watchers
+    for (const watcher of this._fileWatchers) {
+      watcher.dispose();
+    }
+    this._fileWatchers = [];
+
+    // Dispose terminal watchers
+    for (const watcher of this._terminalWatchers) {
+      watcher.dispose();
+    }
+    this._terminalWatchers = [];
+
+    // Dispose debug tracker
+    if (this._debugTrackerDisposable) {
+      this._debugTrackerDisposable.dispose();
+      this._debugTrackerDisposable = null;
+    }
+    this._debugOutput = [];
+
+    if (this._io) {
+      try {
+        this._io.close();
+      } catch (e) {
+        console.error("[FlowCommand] Error closing Socket.IO:", e);
+      }
+      this._io = null;
+    }
+    if (this._server) {
+      try {
+        this._server.close();
+      } catch (e) {
+        console.error("[FlowCommand] Error closing HTTP server:", e);
+      }
+      this._server = null;
+    }
+    this._authenticatedSockets.clear();
+  }
+
+  /**
+   * Debounce and coalesce file change broadcasts per file path.
+   */
+  private _queueFileChangeBroadcast(
+    relativePath: string,
+    payload: RemoteMessage,
+  ): void {
+    this._pendingFileChanges.set(relativePath, payload);
+
+    const existingTimer = this._fileChangeDebounceTimers.get(relativePath);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
 
-    /**
-     * Stop the server
-     */
-    public stop(): void {
-        this._unregisterSession();
+    const timer = setTimeout(() => {
+      const pending = this._pendingFileChanges.get(relativePath);
+      this._pendingFileChanges.delete(relativePath);
+      this._fileChangeDebounceTimers.delete(relativePath);
+      if (pending) {
+        this.broadcast(pending);
+      }
+    }, this._FILE_CHANGE_DEBOUNCE_MS);
 
-        // Clear pending file change broadcasts
-        for (const timer of this._fileChangeDebounceTimers.values()) {
-            clearTimeout(timer);
-        }
-        this._fileChangeDebounceTimers.clear();
-        this._pendingFileChanges.clear();
-        
-        // Dispose file watchers
-        for (const watcher of this._fileWatchers) {
-            watcher.dispose();
-        }
-        this._fileWatchers = [];
-        
-        // Dispose terminal watchers
-        for (const watcher of this._terminalWatchers) {
-            watcher.dispose();
-        }
-        this._terminalWatchers = [];
-        
-        // Dispose debug tracker
-        if (this._debugTrackerDisposable) {
-            this._debugTrackerDisposable.dispose();
-            this._debugTrackerDisposable = null;
-        }
-        this._debugOutput = [];
-        
-        if (this._io) {
-            try {
-                this._io.close();
-            } catch (e) {
-                console.error('[FlowCommand] Error closing Socket.IO:', e);
-            }
-            this._io = null;
-        }
-        if (this._server) {
-            try {
-                this._server.close();
-            } catch (e) {
-                console.error('[FlowCommand] Error closing HTTP server:', e);
-            }
-            this._server = null;
-        }
-        this._authenticatedSockets.clear();
-    }
+    this._fileChangeDebounceTimers.set(relativePath, timer);
+  }
 
-    /**
-     * Debounce and coalesce file change broadcasts per file path.
-     */
-    private _queueFileChangeBroadcast(relativePath: string, payload: RemoteMessage): void {
-        this._pendingFileChanges.set(relativePath, payload);
-
-        const existingTimer = this._fileChangeDebounceTimers.get(relativePath);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
-
-        const timer = setTimeout(() => {
-            const pending = this._pendingFileChanges.get(relativePath);
-            this._pendingFileChanges.delete(relativePath);
-            this._fileChangeDebounceTimers.delete(relativePath);
-            if (pending) {
-                this.broadcast(pending);
-            }
-        }, this._FILE_CHANGE_DEBOUNCE_MS);
-
-        this._fileChangeDebounceTimers.set(relativePath, timer);
-    }
-
-    /**
-     * Dispose resources
-     */
-    public dispose(): void {
-        this.stop();
-    }
+  /**
+   * Dispose resources
+   */
+  public dispose(): void {
+    this.stop();
+  }
 }

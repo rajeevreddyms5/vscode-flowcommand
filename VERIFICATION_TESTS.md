@@ -36,6 +36,8 @@ Call `ask_user` with: `question: "Do you see the queue items still in the queue 
 
 **Fixed (A2):** Queue section auto-shows and expands when pause is clicked. Queue stays visible when paused even with 0 items, providing clear visual feedback of paused state.
 
+FIXME: Clarification needed — user-typed prompts go directly to AI even when queue is paused (this is intended). Queue pause only prevents auto-consumption of existing queue items. Need to re-verify VT-1 with that understanding. (A3)
+
 ---
 
 ### VT-2: Plan Review Cancel Button (Fix for T5.1)
@@ -192,17 +194,17 @@ After running all tests:
 2. For any FAIL results, ensure a `FIXME: <failure description>` line exists under that test
 3. Commit the updated file with FIXME annotations if any tests failed
 
-| Test  | Description                          | Result          |
-| ----- | ------------------------------------ | --------------- |
-| VT-1  | Queue pause no auto-consume          | FIXED (A1, A2)  |
-| VT-2  | Plan review cancel button            | PASS            |
-| VT-3  | Waiting indicator during plan review | FIXED (B1)      |
-| VT-4  | Remote plan review reconnect         | DEFERRED (C1)   |
-| VT-5  | History info icon                    | PASS            |
-| VT-6  | Template UX rename (Pin/Unpin)       | PASS            |
-| VT-7  | Other button removed from choices    | FIXED (D1/E1)   |
-| VT-8  | End/Cancel removed from choices      | FIXED (D1/E1)   |
-| VT-9  | End/Cancel removed from approval     | PASS            |
-| VT-10 | Other removed from multi-question    | FIXED (D1/E1)   |
-| VT-11 | Comma-separated fallback parsing     | FIXED (F1)      |
-| VT-12 | Updated AI guidance choices usage    | FIXED (D1/E1)   |
+| Test  | Description                          | Result        |
+| ----- | ------------------------------------ | ------------- |
+| VT-1  | Queue pause no auto-consume          | **FAIL (A3)** |
+| VT-2  | Plan review cancel button            | PASS          |
+| VT-3  | Waiting indicator during plan review | PASS          |
+| VT-4  | Remote plan review reconnect         | DEFERRED (C1) |
+| VT-5  | History info icon                    | PASS          |
+| VT-6  | Template UX rename (Pin/Unpin)       | PASS          |
+| VT-7  | Other button removed from choices    | PASS          |
+| VT-8  | End/Cancel removed from choices      | PASS          |
+| VT-9  | End/Cancel removed from approval     | PASS          |
+| VT-10 | Other removed from multi-question    | PASS          |
+| VT-11 | Comma-separated fallback parsing     | PASS          |
+| VT-12 | Updated AI guidance choices usage    | PASS          |

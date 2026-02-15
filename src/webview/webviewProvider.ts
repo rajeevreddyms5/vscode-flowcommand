@@ -1425,7 +1425,10 @@ export class FlowCommandWebviewProvider
       !this._queuePaused &&
       this._promptQueue.length > 0
     ) {
-      console.log('[FlowCommand] Auto-consuming queue item for tool call', toolCallId);
+      console.log(
+        "[FlowCommand] Auto-consuming queue item for tool call",
+        toolCallId,
+      );
       const queuedPrompt = this._promptQueue.shift();
       if (queuedPrompt) {
         this._saveQueueToDisk();
@@ -1483,11 +1486,21 @@ export class FlowCommandWebviewProvider
       choices = explicitChoices.map((c, index) => {
         // Try to use parsed shortLabel by matching index
         const parsed = parsedChoices[index];
-        // Priority: parsed shortLabel > truncated label > short value > numeric index
+
+        // Extract clean keyword before separators like " — ", " - ", " – ", " : "
+        // e.g., "Yes — items remain in queue" → "Yes"
+        // e.g., "No — items were auto-consumed" → "No"
+        const separatorMatch = c.label.match(/^(.+?)\s*(?:—|–|[-:])\s+/);
+        const keywordLabel = separatorMatch
+          ? separatorMatch[1].trim()
+          : undefined;
+
+        // Priority: parsed shortLabel > keyword before separator > truncated label > short value > numeric index
         const truncatedLabel =
           c.label.length > 20 ? c.label.substring(0, 17) + "..." : c.label;
         const shortLabel =
           parsed?.shortLabel ||
+          keywordLabel ||
           truncatedLabel ||
           (c.value.length <= 3 ? c.value : String(index + 1));
 
@@ -2735,7 +2748,7 @@ export class FlowCommandWebviewProvider
     this._queuePaused = true;
     this._saveQueueToDisk();
     this._updateQueueUI();
-    console.log('[FlowCommand] Queue paused');
+    console.log("[FlowCommand] Queue paused");
   }
 
   /**
@@ -2745,7 +2758,7 @@ export class FlowCommandWebviewProvider
     this._queuePaused = false;
     this._saveQueueToDisk();
     this._updateQueueUI();
-    console.log('[FlowCommand] Queue resumed');
+    console.log("[FlowCommand] Queue resumed");
 
     // If there's a pending request and queue has items, auto-process immediately
     if (
@@ -4083,11 +4096,17 @@ export class FlowCommandWebviewProvider
             cleanText.length > 40
               ? cleanText.substring(0, 37) + "..."
               : cleanText;
-          // Show option text on button, not just number
+          // Extract clean keyword before separators (e.g., "Yes — description" → "Yes")
+          const sepMatch = cleanText.match(/^(.+?)\s*(?:—|–|[-:])\s+/);
+          const keywordDisplay =
+            sepMatch && sepMatch[1].trim().length <= 20
+              ? sepMatch[1].trim()
+              : undefined;
           const shortDisplay =
-            cleanText.length > 20
+            keywordDisplay ||
+            (cleanText.length > 20
               ? cleanText.substring(0, 17) + "..."
-              : cleanText;
+              : cleanText);
           choices.push({
             label: displayText,
             value: m.num,
@@ -4342,12 +4361,17 @@ export class FlowCommandWebviewProvider
             cleanText.length > 40
               ? cleanText.substring(0, 37) + "..."
               : cleanText;
-          // For bullet points, use the actual option text as shortLabel (truncated for button display)
-          // This differs from numbered/lettered options where we use 1/2/3 or A/B/C
+          // For bullet points, extract clean keyword before separators (e.g., "Yes — description" → "Yes")
+          const sepMatch = cleanText.match(/^(.+?)\s*(?:—|–|[-:])\s+/);
+          const keywordDisplay =
+            sepMatch && sepMatch[1].trim().length <= 20
+              ? sepMatch[1].trim()
+              : undefined;
           const shortDisplay =
-            cleanText.length > 20
+            keywordDisplay ||
+            (cleanText.length > 20
               ? cleanText.substring(0, 17) + "..."
-              : cleanText;
+              : cleanText);
           choices.push({
             label: displayText,
             value: cleanText, // Use actual text as value for bullet points
@@ -4447,8 +4471,10 @@ export class FlowCommandWebviewProvider
       // Strip common preposition/verb prefixes that get captured before the actual options
       // e.g., "to use PostgreSQL, MySQL" → "PostgreSQL, MySQL"
       // e.g., "go with React, Vue" → "React, Vue"
-      const optionsText = commaOrMatch[1]
-        .replace(/^(?:to\s+)?(?:use|go\s+with|try|pick|select|choose|have|work\s+with)\s+/i, '');
+      const optionsText = commaOrMatch[1].replace(
+        /^(?:to\s+)?(?:use|go\s+with|try|pick|select|choose|have|work\s+with)\s+/i,
+        "",
+      );
       // Split by ", " with optional "or" before last item, or " or "
       const parts = optionsText
         .split(/,\s*(?:or\s+)?|\s+or\s+/i)

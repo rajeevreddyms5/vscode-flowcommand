@@ -1423,14 +1423,20 @@
     hideApprovalModal();
     hideChoicesBar();
 
-    // If there's a pending tool call, ALWAYS submit directly (never queue)
-    // This ensures typed text works the same as clicking approval/choice buttons
+    // If there's a pending tool call, submit directly UNLESS queue is enabled and paused
+    // When queue is paused, user prompts should accumulate in the queue, not go to AI
     if (pendingToolCall) {
-      vscode.postMessage({
-        type: "submit",
-        value: text,
-        attachments: currentAttachments,
-      });
+      if (queueEnabled && queuePaused && text) {
+        // Route to queue when paused — prompt waits until queue is resumed
+        addToQueue(text);
+      } else {
+        // Normal: submit directly to the pending tool call
+        vscode.postMessage({
+          type: "submit",
+          value: text,
+          attachments: currentAttachments,
+        });
+      }
       if (chatInput) {
         chatInput.value = "";
         chatInput.style.height = "auto";
@@ -1559,7 +1565,8 @@
     if (!queueSection) return;
     // Show queue section when queue mode is enabled AND (there are items OR queue is paused)
     // Keeping the section visible while paused ensures user can see the "Paused" state
-    var shouldHide = !queueEnabled || (promptQueue.length === 0 && !queuePaused);
+    var shouldHide =
+      !queueEnabled || (promptQueue.length === 0 && !queuePaused);
     queueSection.classList.toggle("hidden", shouldHide);
   }
 

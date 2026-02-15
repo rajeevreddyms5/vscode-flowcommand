@@ -97,4 +97,5 @@ jobs:
       - name: Verify build artifacts
         run: |
           echo "Build completed successfully"
-          echo "Extension version: $(node -p \"require('./package.json').version\")"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Extension version: $VERSION"
